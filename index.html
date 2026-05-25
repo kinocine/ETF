@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -14,13 +16,14 @@
         
         <header class="py-4 border-b border-slate-100 flex justify-between items-center">
             <h1 class="text-xl font-bold tracking-tight text-slate-950">
-                <i class="fa-solidxl fa-chart-line text-indigo-600 mr-1"></i> Happy 평촌
+                <i class="fa-solid fa-chart-line text-indigo-600 mr-1"></i> Happy 평촌
             </h1>
-            <span id="current-date" class="text-sm text-slate-500 font-medium bg-slate-100 px-2.5 py-1 rounded-full">5월 26일</span>
+            <span id="current-date" class="text-sm text-slate-500 font-medium bg-slate-100 px-2.5 py-1 rounded-full">로딩 중...</span>
         </header>
 
         <main class="flex-1 flex flex-col justify-center space-y-4 my-6">
             
+            <!-- 상단 토탈 박스 -->
             <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-md">
                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">현재 토탈 금액</p>
                 <div class="flex items-baseline justify-between mb-4">
@@ -37,9 +40,10 @@
                 </div>
             </div>
 
+            <!-- 기준일 대비 카드 -->
             <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-500 mb-0.5">기준일(4/1) 대비 총 증감</p>
+                    <p class="text-xs font-medium text-slate-500 mb-0.5">기준일 대비 총 증감</p>
                     <span id="base-day-change" class="text-xl font-bold">-</span>
                 </div>
                 <div id="base-day-badge" class="w-10 h-10 rounded-full flex items-center justify-center text-lg">
@@ -47,8 +51,9 @@
                 </div>
             </div>
 
+            <!-- 차트 영역 -->
             <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-                <p class="text-xs font-semibold text-slate-500 mb-3"><i class="fa-solid fa-trend-up mr-1"></i> 자산 추이 (4월 1일 ~)</p>
+                <p class="text-xs font-semibold text-slate-500 mb-3"><i class="fa-solid fa-trend-up mr-1"></i> 자산 추이</p>
                 <div class="relative w-full h-40">
                     <canvas id="trendChart"></canvas>
                 </div>
@@ -62,27 +67,58 @@
     </div>
 
     <script>
-        const rawData = [
-            { date: "4월 1일", total: 112837440 },
-            { date: "5월 4일", total: 113135986 },
-            { date: "5월 5일", total: 113198956 },
-            { date: "5월 6일", total: 113209080 },
-            { date: "5월 7일", total: 113307908 },
-            { date: "5월 8 passion", total: 113365328 },
-            { date: "5월 8일", total: 113365328 },
-            { date: "5월 9일", total: 113394317 },
-            { date: "5월 10일", total: 113404381 },
-            { date: "5월 11일", total: 113414446 },
-            { date: "5월 12일", total: 113483365 },
-            { date: "5월 13일", total: 113409738 },
-            { date: "5월 20일", total: 113224274 },
-            { date: "5월 21일", total: 113211044 },
-            { date: "5월 22일", total: 113541087 },
-            { date: "5월 23일", total: 113602917 },
-            { date: "5월 24일", total: 113612868 },
-            { date: "5월 25일", total: 113622821 },
-            { date: "5월 26일", total: 113622821 }
-        ];
+        // ⚠️ [필수] 아래 큰따옴표 안에 구글 스프레드시트에서 게시한 CSV 주소를 넣어주세요.
+        const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
+
+        let rawData = [];
+
+        async function fetchGoogleSheetData() {
+            try {
+                const response = await fetch(sheetUrl);
+                const csvText = await response.text();
+                
+                // CSV 파싱 공정 (줄바꿈 처리 및 쉽표 분리)
+                const lines = csvText.split(/\r?\n/);
+                if (lines.length < 2) return;
+
+                // 1행: 헤더 이름들 (date, 종목1, 종목2...)
+                const headers = lines[0].split(',').map(h => h.trim());
+                
+                const parsedData = [];
+
+                // 2행부터 데이터 파싱 및 날짜별 토탈 자동 연산
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i]) continue;
+                    const columns = lines[i].split(',').map(c => c.trim());
+                    
+                    let dateValue = columns[0]; // 첫 번째 칸은 날짜
+                    let dayTotal = 0;
+
+                    // 각 날짜별 행의 종목 가격들을 전부 합산
+                    for (let j = 1; j < columns.length; j++) {
+                        const price = parseFloat(columns[j]);
+                        if (!isNaN(price)) {
+                            dayTotal += price;
+                        }
+                    }
+
+                    // 날짜와 합산 완료된 토탈 값을 배열에 삽입
+                    if (dateValue) {
+                        parsedData.push({
+                            date: dateValue,
+                            total: dayTotal
+                        });
+                    }
+                }
+
+                rawData = parsedData;
+                initDashboard();
+
+            } catch (error) {
+                console.error("구글 시트 데이터를 가져오는 데 실패했습니다:", error);
+                document.getElementById('current-date').innerText = "데이터 오류";
+            }
+        }
 
         function initDashboard() {
             if (rawData.length === 0) return;
@@ -94,21 +130,20 @@
             document.getElementById('current-date').innerText = latest.date;
             document.getElementById('total-amount').innerText = latest.total.toLocaleString();
 
-            // 1. 전일 대비 데이터 계산 및 반영 (상단 블랙 박스 내부 진입)
+            // 1. 전일 대비 계산
             const prevDiff = latest.total - prev.total;
             const prevPercent = prev.total !== 0 ? (prevDiff / prev.total) * 100 : 0;
             updatePrevDayUI(prevDiff, prevPercent);
 
-            // 2. 기준일 대비 데이터 계산 및 반영
+            // 2. 기준일 대비 계산
             const baseDiff = latest.total - base.total;
             const basePercent = base.total !== 0 ? (baseDiff / base.total) * 100 : 0;
             updateBaseDayCard('base-day-change', 'base-day-badge', baseDiff, basePercent);
 
-            // 3. 추이 그래프 그리기
+            // 3. 차트 그리기
             renderChart();
         }
 
-        // 전일 대비 UI 업데이트 (상단 토탈금액 박스용)
         function updatePrevDayUI(diff, percent) {
             const textEl = document.getElementById('prev-day-change');
             const iconEl = document.getElementById('prev-day-icon');
@@ -128,7 +163,6 @@
             }
         }
 
-        // 기준일 대비 카드 UI 업데이트
         function updateBaseDayCard(textId, badgeId, diff, percent) {
             const textEl = document.getElementById(textId);
             const badgeEl = document.getElementById(badgeId);
@@ -151,11 +185,8 @@
             }
         }
 
-        // Chart.js 추이선 그래프 렌더링
         function renderChart() {
             const ctx = document.getElementById('trendChart').getContext('2d');
-            
-            // X축 라벨(날짜)과 Y축 데이터(금액) 생성
             const labels = rawData.map(item => item.date);
             const data = rawData.map(item => item.total);
 
@@ -166,20 +197,18 @@
                     datasets: [{
                         label: '총 자산',
                         data: data,
-                        borderColor: '#4f46e5', // 인디고 컬러 라인
+                        borderColor: '#4f46e5',
                         borderWidth: 2,
                         pointRadius: 1.5,
                         pointHoverRadius: 4,
                         fill: false,
-                        tension: 0.15 // 부드러운 곡선 효과
+                        tension: 0.15
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false } // 상단 범례 생략
-                    },
+                    plugins: { legend: { display: false } },
                     scales: {
                         x: {
                             grid: { display: false },
@@ -191,7 +220,6 @@
                                 font: { size: 9 },
                                 color: '#94a3b8',
                                 callback: function(value) {
-                                    // 단위 간소화 만원(만) 단위 혹은 백만(M) 처리 대신 가독성 위함
                                     return (value / 10000).toLocaleString() + '만';
                                 }
                             }
@@ -201,7 +229,8 @@
             });
         }
 
-        window.onload = initDashboard;
+        // 페이지 로드 시 구글 시트에서 데이터 가져오기 수행
+        window.onload = fetchGoogleSheetData;
     </script>
 </body>
 </html>
