@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinocine 자산 현황 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+    <div class="max-w-md mx-auto min-h-screen flex flex-col justify-between p-4 bg-white shadow-lg">
+        
+        <header class="py-4 border-b border-slate-100 flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-tight text-slate-950">
+                <i class="fa-solid fa-chart-line text-indigo-600 mr-1"></i> 자산 현황 스냅샷
+            </h1>
+            <span id="current-date" class="text-sm text-slate-500 font-medium bg-slate-100 px-2.5 py-1 rounded-full">5월 26일</span>
+        </header>
+
+        <main class="flex-1 flex flex-col justify-center space-y-6 my-8">
+            
+            <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-md transition-transform active:scale-98">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">현재 토탈 금액</p>
+                <div class="flex items-baseline justify-between">
+                    <span id="total-amount" class="text-3xl font-extrabold tracking-tight">0</span>
+                    <span class="text-sm text-slate-400 font-medium">KRW</span>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-slate-500 mb-0.5">전일 대비 변동</p>
+                    <span id="prev-day-change" class="text-2xl font-bold">-</span>
+                </div>
+                <div id="prev-day-badge" class="w-12 h-12 rounded-full flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-minus"></i>
+                </div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-slate-500 mb-0.5">기준일(4/1) 대비 총 증감</p>
+                    <span id="base-day-change" class="text-2xl font-bold">-</span>
+                </div>
+                <div id="base-day-badge" class="w-12 h-12 rounded-full flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-minus"></i>
+                </div>
+            </div>
+
+        </main>
+
+        <footer class="py-4 text-center border-t border-slate-100 text-xs text-slate-400">
+            © 2026 Kinocine. 매일 아침 업데이트.
+        </footer>
+    </div>
+
+    <script>
+        // [수정 포인트] 매일 날짜와 토탈 금액만 이 배열에 순서대로 추가하시면 됩니다!
+        const rawData = [
+            { date: "4월 1일", total: 112837440 },
+            { date: "5월 4일", total: 113135986 },
+            { date: "5월 5일", total: 113198956 },
+            { date: "5월 6일", total: 113209080 },
+            { date: "5월 7일", total: 113307908 },
+            { date: "5월 8일", total: 113365328 },
+            { date: "5월 9일", total: 113394317 },
+            { date: "5월 10일", total: 113404381 },
+            { date: "5월 11일", total: 113414446 },
+            { date: "5월 12일", total: 113483365 },
+            { date: "5월 13일", total: 113409738 },
+            { date: "5월 20일", total: 113224274 },
+            { date: "5월 21일", total: 113211044 },
+            { date: "5월 22일", total: 113541087 },
+            { date: "5월 23일", total: 113602917 },
+            { date: "5월 24일", total: 113612868 },
+            { date: "5월 25일", total: 113622821 },
+            { date: "5월 26일", total: 113622821 } // 오늘 데이터 예시
+        ];
+
+        function initDashboard() {
+            if (rawData.length === 0) return;
+
+            // 1. 필요한 데이터 추출 (가장 최신 데이터, 전날 데이터, 기준일 데이터)
+            const latest = rawData[rawData.length - 1];
+            const prev = rawData.length > 1 ? rawData[rawData.length - 2] : latest;
+            const base = rawData[0]; // 4월 1일 고정
+
+            // 2. 상단 날짜 및 현재 금액 반영
+            document.getElementById('current-date').innerText = latest.date;
+            document.getElementById('total-amount').innerText = latest.total.toLocaleString();
+
+            // 3. 전일 대비 계산 및 UI 반영
+            const prevDiff = latest.total - prev.total;
+            const prevPercent = prev.total !== 0 ? (prevDiff / prev.total) * 100 : 0;
+            updateCard('prev-day-change', 'prev-day-badge', prevDiff, prevPercent);
+
+            // 4. 기준일 대비 계산 및 UI 반영
+            const baseDiff = latest.total - base.total;
+            const basePercent = base.total !== 0 ? (baseDiff / base.total) * 100 : 0;
+            updateCard('base-day-change', 'base-day-badge', baseDiff, basePercent);
+        }
+
+        // 카드 UI 세부 업데이트 함수 (색상, 아이콘, 텍스트)
+        function updateCard(textId, badgeId, diff, percent) {
+            const textEl = document.getElementById(textId);
+            const badgeEl = document.getElementById(badgeId);
+            
+            const sign = diff > 0 ? '+' : '';
+            const formattedDiff = diff.toLocaleString();
+            const formattedPercent = percent.toFixed(3); // 소수점 3자리까지 표현
+
+            textEl.innerText = `${sign}${formattedDiff} (${sign}${formattedPercent}%)`;
+
+            if (diff > 0) {
+                // 상승일 때 (빨간색 계열)
+                textEl.className = "text-2xl font-bold text-red-600";
+                badgeEl.className = "w-12 h-12 rounded-full flex items-center justify-center text-xl bg-red-50 text-red-600";
+                badgeEl.innerHTML = '<i class="fa-solid fa-arrow-trend-up"></i>';
+            } else if (diff < 0) {
+                // 하락일 때 (파란색 계열)
+                textEl.className = "text-2xl font-bold text-blue-600";
+                badgeEl.className = "w-12 h-12 rounded-full flex items-center justify-center text-xl bg-blue-50 text-blue-600";
+                badgeEl.innerHTML = '<i class="fa-solid fa-arrow-trend-down"></i>';
+            } else {
+                // 변동 없을 때 (회색)
+                textEl.className = "text-2xl font-bold text-slate-500";
+                badgeEl.className = "w-12 h-12 rounded-full flex items-center justify-center text-xl bg-slate-100 text-slate-500";
+                badgeEl.innerHTML = '<i class="fa-solid fa-minus"></i>';
+            }
+        }
+
+        // 페이지 로드 시 실행
+        window.onload = initDashboard;
+    </script>
+</body>
+</html>
