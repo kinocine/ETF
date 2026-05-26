@@ -68,8 +68,7 @@
     </div>
 
     <script>
-        // ⚠️ [필수] 아래 구글 스프레드시트 웹 게시 CSV 주소를 넣어주세요.
-        const sheetUrl = "여기에_구글시트_CSV_주소_넣기";
+        const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
 
         let sheetHeaders = [];   
         let dateLabels = [];     
@@ -85,23 +84,27 @@
                 const lines = csvText.split(/\r?\n/);
                 if (lines.length < 2) return;
 
-                sheetHeaders = parseCSVRow(lines[0]);
+                // 헤더 파싱
+                sheetHeaders = parseCSVLine(lines[0]);
                 
                 for (let j = 1; j < sheetHeaders.length; j++) {
                     ColumnDataMaps[j] = [];
                 }
                 dateLabels = [];
 
+                // 데이터 파싱
                 for (let i = 1; i < lines.length; i++) {
-                    if (!lines[i].trim()) continue;
-                    const columns = parseCSVRow(lines[i]);
+                    const rowText = lines[i].trim();
+                    if (!rowText) continue;
+                    
+                    const columns = parseCSVLine(rowText);
                     if (!columns[0]) continue; 
 
                     dateLabels.push(columns[0]);
 
                     for (let j = 1; j < sheetHeaders.length; j++) {
                         let val = null;
-                        if (columns[j] && columns[j].trim()) {
+                        if (columns[j] !== undefined && columns[j] !== null && columns[j].trim() !== "") {
                             const num = parseFloat(columns[j].replace(/[^0-9.-]/g, ""));
                             if (!isNaN(num)) val = num;
                         }
@@ -110,7 +113,7 @@
                 }
 
                 renderTabs();
-                switchTab(1); // 최초 로드 시 B열(토탈) 표시
+                switchTab(1); 
 
             } catch (error) {
                 console.error("데이터 로딩 실패:", error);
@@ -118,22 +121,21 @@
             }
         }
 
-        function parseCSVRow(rowText) {
+        // ⭐ 금액 쉼표와 따옴표 문제를 완전히 우회하는 표준 CSV 정규식 매칭 분할 함수
+        function parseCSVLine(text) {
             const result = [];
-            let insideQuote = false;
-            let entries = "";
-            for (let i = 0; i < rowText.length; i++) {
-                const char = rowText[i];
-                if (char === '"') {
-                    insideQuote = !insideQuote;
-                } else if (char === ',' && !insideQuote) {
-                    result.push(entries.replace(/^"|"$/g, "").trim());
-                    entries = "";
-                } else {
-                    entries += char;
+            // 쌍따옴표 내부 컴마 보호용 RFC 4180 기준 정규식 적용
+            const regex = /(?!\s|$)\s*(?:"([^"\\]*(?:\\[\s\S][^"\\]*)*)"|([^",\s\t\n\r]*))\s*(?:,|$)/g;
+            
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+                let matchStr = match[1] !== undefined ? match[1] : match[2];
+                result.push(matchStr ? matchStr.trim() : "");
+                // 무한 루프 방지
+                if (regex.lastIndex === match.index) {
+                    regex.lastIndex++;
                 }
             }
-            result.push(entries.replace(/^"|"$/g, "").trim());
             return result;
         }
 
