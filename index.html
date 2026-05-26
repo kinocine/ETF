@@ -53,10 +53,14 @@
                 </div>
             </div>
 
-            <div id="naver-finance-box" class="hidden transition-all duration-200">
-                <a id="naver-finance-link" href="#" target="_blank" class="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl py-3 px-4 flex items-center justify-between font-semibold text-sm shadow-sm transition-colors">
-                    <span><i class="fa-solid fa-money-bill-trend-up mr-1.5 text-emerald-600"></i>▶네이버증권에서 종목 정보 보기</span>
-                    <i class="fa-solid fa-chevron-right text-xs text-emerald-500"></i>
+            <div id="finance-links-box" class="hidden grid grid-cols-2 gap-2 transition-all duration-200">
+                <a id="naver-finance-link" href="#" target="_blank" class="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl py-2.5 px-3 flex items-center justify-between font-semibold text-xs shadow-sm transition-colors">
+                    <span><i class="fa-solid fa-money-bill-trend-up mr-1 text-emerald-600"></i>네이버증권</span>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-emerald-500"></i>
+                </a>
+                <a id="google-finance-link" href="#" target="_blank" class="bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-xl py-2.5 px-3 flex items-center justify-between font-semibold text-xs shadow-sm transition-colors">
+                    <span><i class="fa-solid fa-arrow-up-right-from-square mr-1 text-blue-600"></i>구글금융</span>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-blue-500"></i>
                 </a>
             </div>
 
@@ -77,13 +81,13 @@
     <script>
         const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
 
-        // 💡 주인님 시트 오타 일치 작업 완료! 
-        // 1행의 글자와 100% 매칭되어야 링크 배너가 나타납니다.
+        // 💡 알려주신 정확한 종목명 정보와 금융 코드를 100% 일치시켰습니다.
         const naverCodeMap = {
-            "코덱.AI전력": "487240",
-            "타이거200it": "139230",
-            "에이스미국빅테크그룹7플러스": "465580", // '톱'이 아니라 '그룹'으로 되어 있어 수정했습니다!
-            "KODEX IT": "091160"
+            "TIGER 200 IT": "139260",
+            "ACE 미국빅테크TOP7 Plus": "465580",
+            "KODEX IT": "266370",
+            "KODEX AI전력핵심설비": "487240",
+            "KIWOOM 미국양자컴퓨팅": "498270"
         };
 
         let sheetHeaders = [];       
@@ -184,16 +188,18 @@
             document.getElementById('asset-label').innerText = `${currentTabName} 현황`;
             document.getElementById('current-date').innerText = dateLabels[dateLabels.length - 1];
 
-            // 네이버 금융 코드 매칭 로직
-            const naverBox = document.getElementById('naver-finance-box');
+            // 네이버 금융 및 구글 금융 정보 매칭 로직 수정
+            const linksBox = document.getElementById('finance-links-box');
             const naverLink = document.getElementById('naver-finance-link');
+            const googleLink = document.getElementById('google-finance-link');
             const targetCode = naverCodeMap[currentTabName];
             
             if (targetCode) {
                 naverLink.href = `https://finance.naver.com/item/main.naver?code=${targetCode}`;
-                naverBox.classList.remove('hidden');
+                googleLink.href = `https://www.google.com/finance/beta/quote/${targetCode}:KRX`;
+                linksBox.classList.remove('hidden');
             } else {
-                naverBox.classList.add('hidden');
+                linksBox.classList.add('hidden');
             }
 
             const currentArray = ColumnDataMaps[index];
@@ -241,7 +247,6 @@
             renderChart(index, firstValidIdx);
         }
 
-        // 이하 UI 편의 함수 및 차트 렌더링 로직 (기존과 동일)
         function updatePrevDayUI(diff, percent) {
             const textEl = document.getElementById('prev-day-change');
             const iconEl = document.getElementById('prev-day-icon');
