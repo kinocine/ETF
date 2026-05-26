@@ -81,19 +81,19 @@
     <script>
         const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
 
-        // 💡 알려주신 정확한 종목명 정보와 금융 코드를 100% 일치시켰습니다.
-        const naverCodeMap = {
-            "TIGER 200 IT": "139260",
-            "ACE 미국빅테크TOP7 Plus": "465580",
-            "KODEX IT": "266370",
-            "KODEX AI전력핵심설비": "487240",
-            "KIWOOM 미국양자컴퓨팅": "498270"
-        };
+        const validStockCodes = ["139260", "465580", "266370", "487240", "498270"];
 
         let sheetHeaders = [];       
         let dateLabels = [];     
         let ColumnDataMaps = {}; 
         let chartInstance = null; 
+
+        // 💡 숫자를 화면에서 지워주는 헬퍼 함수
+        function cleanTitle(title) {
+            if (!title) return "";
+            // 6자리 숫자와 앞뒤 특수문자나 공백을 지워줍니다.
+            return title.replace(/_?\d{6}_?|[\(\)]/g, "").trim();
+        }
 
         async function fetchGoogleSheetData() {
             try {
@@ -165,7 +165,9 @@
                 btn.id = `tab-btn-${j}`;
                 btn.type = "button";
                 btn.className = "text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap transition-all duration-150";
-                btn.innerText = sheetHeaders[j];
+                
+                // 💡 탭 버튼 이름에서 숫자를 지우고 깨끗한 이름만 출력합니다.
+                btn.innerText = cleanTitle(sheetHeaders[j]);
                 btn.addEventListener('click', () => switchTab(j));
                 
                 container.appendChild(btn);
@@ -173,7 +175,8 @@
         }
 
         function switchTab(index) {
-            const currentTabName = sheetHeaders[index] ? sheetHeaders[index].trim() : "";
+            const rawTabName = sheetHeaders[index] ? sheetHeaders[index].trim() : "";
+            const cleanTabName = cleanTitle(rawTabName);
 
             for (let j = 1; j < sheetHeaders.length; j++) {
                 const btn = document.getElementById(`tab-btn-${j}`);
@@ -185,16 +188,19 @@
                 }
             }
 
-            document.getElementById('asset-label').innerText = `${currentTabName} 현황`;
+            // 💡 상단 현황판 제목도 숫자가 없는 깨끗한 이름으로 보여줍니다.
+            document.getElementById('asset-label').innerText = `${cleanTabName} 현황`;
             document.getElementById('current-date').innerText = dateLabels[dateLabels.length - 1];
 
-            // 네이버 금융 및 구글 금융 정보 매칭 로직 수정
             const linksBox = document.getElementById('finance-links-box');
             const naverLink = document.getElementById('naver-finance-link');
             const googleLink = document.getElementById('google-finance-link');
-            const targetCode = naverCodeMap[currentTabName];
             
-            if (targetCode) {
+            // 링크 생성에는 원래 글자에서 추출한 숫자 6자리를 그대로 활용합니다.
+            const codeMatch = rawTabName.match(/\d{6}/);
+            const targetCode = codeMatch ? codeMatch[0] : null;
+            
+            if (targetCode && validStockCodes.includes(targetCode)) {
                 naverLink.href = `https://finance.naver.com/item/main.naver?code=${targetCode}`;
                 googleLink.href = `https://www.google.com/finance/beta/quote/${targetCode}:KRX`;
                 linksBox.classList.remove('hidden');
@@ -294,7 +300,8 @@
                 data: {
                     labels: filteredLabels,
                     datasets: [{
-                        label: sheetHeaders[index],
+                        // 💡 차트 범례에서도 숫자를 지우고 깨끗하게 표현합니다.
+                        label: cleanTitle(sheetHeaders[index]),
                         data: filteredData,
                         borderColor: '#4f46e5',
                         borderWidth: 2.5,
