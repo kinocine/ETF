@@ -19,10 +19,16 @@
             <span id="current-date" class="text-sm text-slate-500 font-medium bg-slate-100 px-2.5 py-1 rounded-full">로딩 중...</span>
         </header>
 
-        <main class="flex-1 flex flex-col justify-center space-y-4 my-6">
+        <div class="mt-4 border-b border-slate-200">
+            <div id="tabs-container" class="flex space-x-2 overflow-x-auto pb-2 scrollbar-none">
+                <span class="text-sm text-slate-400 px-3 py-1">탭 로딩 중...</span>
+            </div>
+        </div>
+
+        <main class="flex-1 flex flex-col justify-center space-y-4 my-4">
             
             <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-md">
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">현재 토탈 금액</p>
+                <p id="asset-label" class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">현재 금액</p>
                 <div class="flex items-baseline justify-between mb-4">
                     <span id="total-amount" class="text-3xl font-extrabold tracking-tight">0</span>
                     <span class="text-sm text-slate-400 font-medium">KRW</span>
@@ -39,7 +45,7 @@
 
             <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-500 mb-0.5">기준일(4/1) 대비 총 증감</p>
+                    <p id="base-day-label" class="text-xs font-medium text-slate-500 mb-0.5">기준일 대비 총 증감</p>
                     <span id="base-day-change" class="text-xl font-bold">-</span>
                 </div>
                 <div id="base-day-badge" class="w-10 h-10 rounded-full flex items-center justify-center text-lg">
@@ -47,16 +53,9 @@
                 </div>
             </div>
 
-            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                <p class="text-xs font-semibold text-slate-500 mb-3"><i class="fa-solid fa-wallet mr-1"></i> 보유 종목별 현황</p>
-                <div id="item-list-container" class="space-y-3">
-                    <p class="text-sm text-slate-400 text-center py-2">종목 데이터를 불러오는 중...</p>
-                </div>
-            </div>
-
             <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-                <p class="text-xs font-semibold text-slate-500 mb-3"><i class="fa-solid fa-trend-up mr-1"></i> 자산 추이 (4월 1일 ~)</p>
-                <div class="relative w-full h-40">
+                <p class="text-xs font-semibold text-slate-500 mb-3"><i class="fa-solid fa-trend-up mr-1"></i> 자산 추이</p>
+                <div class="relative w-full h-52">
                     <canvas id="trendChart"></canvas>
                 </div>
             </div>
@@ -69,62 +68,49 @@
     </div>
 
     <script>
-        // ⚠️ [필수] 아래 큰따옴표 안에 구글 스프레드시트에서 게시한 CSV 주소를 넣어주세요.
+        // ⚠️ [필수] 아래 구글 스프레드시트 웹 게시 CSV 주소를 넣어주세요.
         const sheetUrl = "여기에_구글시트_CSV_주소_넣기";
 
-        let rawData = [];
-        let stockHeaders = []; 
-        let latestStocks = {}; 
+        let sheetHeaders = [];   
+        let dateLabels = [];     
+        let ColumnDataMaps = {}; 
+        let chartInstance = null; 
 
         async function fetchGoogleSheetData() {
             try {
                 const response = await fetch(sheetUrl);
+                if (!response.ok) throw new Error("네트워크 응답 불량");
                 const csvText = await response.text();
                 
                 const lines = csvText.split(/\r?\n/);
                 if (lines.length < 2) return;
 
-                // 1행 헤더 파싱
-                const headers = parseCSVRow(lines[0]);
+                sheetHeaders = parseCSVRow(lines[0]);
                 
-                // C열(인덱스 2)부터 끝까지 하단 리스트에 뿌릴 종목명으로 지정
-                stockHeaders = headers.slice(2);
+                for (let j = 1; j < sheetHeaders.length; j++) {
+                    ColumnDataMaps[j] = [];
+                }
+                dateLabels = [];
 
-                const parsedData = [];
-
-                // 2행부터 데이터 행별 순회 처리
                 for (let i = 1; i < lines.length; i++) {
                     if (!lines[i].trim()) continue;
                     const columns = parseCSVRow(lines[i]);
-                    
-                    const dateValue = columns[0];
-                    if (!dateValue) continue;
+                    if (!columns[0]) continue; 
 
-                    // ⭐ 복잡한 계산식 삭제: B열(인덱스 1)의 거대 숫자를 정직하게 그대로 추출
-                    const totalValue = parseFloat(columns[1].replace(/[^0-9.-]/g, ""));
+                    dateLabels.push(columns[0]);
 
-                    if (!isNaN(totalValue)) {
-                        parsedData.push({
-                            date: dateValue,
-                            total: totalValue
-                        });
-
-                        // 가장 마지막(최신) 행인 경우 하단에 노출할 C열 이후 종목들의 숫자를 보관
-                        if (i === lines.length - 1 || (i === lines.length - 2 && !lines[lines.length-1].trim())) {
-                            stockHeaders.forEach((header, idx) => {
-                                const rawPrice = columns[idx + 2];
-                                if (rawPrice && rawPrice.trim()) {
-                                    latestStocks[header] = parseFloat(rawPrice.replace(/[^0-9.-]/g, ""));
-                                } else {
-                                    latestStocks[header] = null; 
-                                }
-                            });
+                    for (let j = 1; j < sheetHeaders.length; j++) {
+                        let val = null;
+                        if (columns[j] && columns[j].trim()) {
+                            const num = parseFloat(columns[j].replace(/[^0-9.-]/g, ""));
+                            if (!isNaN(num)) val = num;
                         }
+                        ColumnDataMaps[j].push(val);
                     }
                 }
 
-                rawData = parsedData;
-                initDashboard();
+                renderTabs();
+                switchTab(1); // 최초 로드 시 B열(토탈) 표시
 
             } catch (error) {
                 console.error("데이터 로딩 실패:", error);
@@ -132,12 +118,10 @@
             }
         }
 
-        // CSV 큰따옴표 안 문자 보존용 정밀 파싱 함수
         function parseCSVRow(rowText) {
             const result = [];
             let insideQuote = false;
             let entries = "";
-            
             for (let i = 0; i < rowText.length; i++) {
                 const char = rowText[i];
                 if (char === '"') {
@@ -153,31 +137,81 @@
             return result;
         }
 
-        function initDashboard() {
-            if (rawData.length === 0) return;
+        function renderTabs() {
+            const container = document.getElementById('tabs-container');
+            container.innerHTML = "";
 
-            const latest = rawData[rawData.length - 1];
-            const prev = rawData.length > 1 ? rawData[rawData.length - 2] : latest;
-            const base = rawData[0];
+            for (let j = 1; j < sheetHeaders.length; j++) {
+                if (!sheetHeaders[j]) continue;
+                
+                const btn = document.createElement('button');
+                btn.id = `tab-btn-${j}`;
+                btn.type = "button";
+                btn.className = "text-sm font-medium px-3.5 py-1.5 rounded-full whitespace-nowrap transition-all duration-150";
+                btn.innerText = sheetHeaders[j];
+                btn.addEventListener('click', () => switchTab(j));
+                
+                container.appendChild(btn);
+            }
+        }
 
-            document.getElementById('current-date').innerText = latest.date;
-            document.getElementById('total-amount').innerText = latest.total.toLocaleString();
+        function switchTab(index) {
+            for (let j = 1; j < sheetHeaders.length; j++) {
+                const btn = document.getElementById(`tab-btn-${j}`);
+                if (!btn) continue;
+                if (j === index) {
+                    btn.className = "text-sm font-bold px-3.5 py-1.5 rounded-full whitespace-nowrap bg-indigo-600 text-white shadow-sm";
+                } else {
+                    btn.className = "text-sm font-medium px-3.5 py-1.5 rounded-full whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200";
+                }
+            }
 
-            // 1. 전일 대비 변동 계산
-            const prevDiff = latest.total - prev.total;
-            const prevPercent = prev.total !== 0 ? (prevDiff / prev.total) * 100 : 0;
+            document.getElementById('asset-label').innerText = `${sheetHeaders[index]} 현황`;
+            document.getElementById('current-date').innerText = dateLabels[dateLabels.length - 1];
+
+            const currentArray = ColumnDataMaps[index];
+            
+            let firstValidIdx = -1;
+            for (let k = 0; k < currentArray.length; k++) {
+                if (currentArray[k] !== null && !isNaN(currentArray[k])) {
+                    firstValidIdx = k;
+                    break;
+                }
+            }
+
+            if (firstValidIdx === -1) {
+                document.getElementById('total-amount').innerText = "0";
+                document.getElementById('base-day-label').innerText = "기준일 데이터 없음";
+                document.getElementById('base-day-change').innerText = "-";
+                if (chartInstance) chartInstance.destroy();
+                return;
+            }
+
+            const latestVal = currentArray[currentArray.length - 1] || 0;
+            
+            let prevVal = latestVal;
+            for (let k = currentArray.length - 2; k >= firstValidIdx; k--) {
+                if (currentArray[k] !== null && !isNaN(currentArray[k])) {
+                    prevVal = currentArray[k];
+                    break;
+                }
+            }
+            
+            const baseVal = currentArray[firstValidIdx];
+            const startActiveDate = dateLabels[firstValidIdx]; 
+
+            document.getElementById('total-amount').innerText = latestVal.toLocaleString();
+
+            const prevDiff = latestVal - prevVal;
+            const prevPercent = prevVal !== 0 ? (prevDiff / prevVal) * 100 : 0;
             updatePrevDayUI(prevDiff, prevPercent);
 
-            // 2. 기준일 대비 총 증감 계산
-            const baseDiff = latest.total - base.total;
-            const basePercent = base.total !== 0 ? (baseDiff / base.total) * 100 : 0;
-            updateBaseDayCard('base-day-change', 'base-day-badge', baseDiff, basePercent);
+            document.getElementById('base-day-label').innerText = `기준일(${startActiveDate}) 대비 총 증감`;
+            const baseDiff = latestVal - baseVal;
+            const basePercent = baseVal !== 0 ? (baseDiff / baseVal) * 100 : 0;
+            updateBaseDayCard(baseDiff, basePercent);
 
-            // 3. 우측 종목별 리스트 화면 생성
-            renderStockList();
-
-            // 4. 차트 그리기
-            renderChart();
+            renderChart(index, firstValidIdx);
         }
 
         function updatePrevDayUI(diff, percent) {
@@ -185,7 +219,7 @@
             const iconEl = document.getElementById('prev-day-icon');
             const sign = diff > 0 ? '+' : '';
             
-            textEl.innerText = `${sign}${diff.toLocaleString()} (${sign}${percent.toFixed(3)}%)`;
+            textEl.innerText = `${sign}${diff.toLocaleString()} (${sign}${percent.toFixed(2)}%)`;
 
             if (diff > 0) {
                 textEl.className = "text-sm font-bold text-red-400";
@@ -199,12 +233,12 @@
             }
         }
 
-        function updateBaseDayCard(textId, badgeId, diff, percent) {
-            const textEl = document.getElementById(textId);
-            const badgeEl = document.getElementById(badgeId);
+        function updateBaseDayCard(diff, percent) {
+            const textEl = document.getElementById('base-day-change');
+            const badgeEl = document.getElementById('base-day-badge');
             const sign = diff > 0 ? '+' : '';
 
-            textEl.innerText = `${sign}${diff.toLocaleString()} (${sign}${percent.toFixed(3)}%)`;
+            textEl.innerText = `${sign}${diff.toLocaleString()} (${sign}${percent.toFixed(2)}%)`;
 
             if (diff > 0) {
                 textEl.className = "text-xl font-bold text-red-600";
@@ -221,52 +255,29 @@
             }
         }
 
-        function renderStockList() {
-            const container = document.getElementById('item-list-container');
-            container.innerHTML = ""; 
-
-            let hasVisibleStock = false;
-
-            stockHeaders.forEach(name => {
-                const price = latestStocks[name];
-                
-                // 데이터가 존재하는 것만 리스트에 생성
-                if (price !== null && !isNaN(price)) {
-                    hasVisibleStock = true;
-                    
-                    const row = document.createElement('div');
-                    row.className = "flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0";
-                    row.innerHTML = `
-                        <span class="text-sm font-medium text-slate-600"><i class="fa-regular fa-circle-dot text-xs text-indigo-500 mr-1.5"></i>${name}</span>
-                        <span class="text-sm font-bold text-slate-900">${price.toLocaleString()} <span class="text-xs font-normal text-slate-400 ml-0.5">원</span></span>
-                    `;
-                    container.appendChild(row);
-                }
-            });
-
-            if (!hasVisibleStock) {
-                container.innerHTML = `<p class="text-sm text-slate-400 text-center py-2">표시할 종목이 없습니다.</p>`;
-            }
-        }
-
-        function renderChart() {
+        function renderChart(index, startIndex) {
             const ctx = document.getElementById('trendChart').getContext('2d');
-            const labels = rawData.map(item => item.date);
-            const data = rawData.map(item => item.total);
+            
+            const filteredLabels = dateLabels.slice(startIndex);
+            const filteredData = ColumnDataMaps[index].slice(startIndex);
 
-            new Chart(ctx, {
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    labels: filteredLabels,
                     datasets: [{
-                        label: '총 자산',
-                        data: data,
+                        label: sheetHeaders[index],
+                        data: filteredData,
                         borderColor: '#4f46e5',
-                        borderWidth: 2,
-                        pointRadius: 1.5,
-                        pointHoverRadius: 4,
+                        borderWidth: 2.5,
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
                         fill: false,
-                        tension: 0.15
+                        tension: 0.1
                     }]
                 },
                 options: {
@@ -276,7 +287,7 @@
                     scales: {
                         x: {
                             grid: { display: false },
-                            ticks: { font: { size: 9 }, color: '#94a3b8' }
+                            ticks: { font: { size: 9 }, color: '#94a3b8', maxTicksLimit: 8 }
                         },
                         y: {
                             grid: { color: '#f1f5f9' },
@@ -284,7 +295,10 @@
                                 font: { size: 9 },
                                 color: '#94a3b8',
                                 callback: function(value) {
-                                    return (value / 10000).toLocaleString() + '만';
+                                    if (value >= 10000) {
+                                        return (value / 10000).toLocaleString() + '만';
+                                    }
+                                    return value.toLocaleString();
                                 }
                             }
                         }
