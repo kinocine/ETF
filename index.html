@@ -80,6 +80,14 @@
                 </div>
             </div>
 
+            <div id="archive-section" class="bg-slate-100 border border-slate-200 rounded-2xl p-4 shadow-sm hidden">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">
+                    <i class="fa-solid fa-box-archive mr-1.5 text-slate-500"></i>과거 투자 종목 (보관함)
+                </p>
+                <div id="archive-container" class="flex flex-wrap gap-2">
+                    </div>
+            </div>
+
         </main>
 
         <footer class="py-4 text-center border-t border-slate-100 text-xs text-slate-400">
@@ -90,14 +98,17 @@
     <script>
         const mainSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
 
-   // 모든 종목 키워드와 코드를 이곳에서 한 번에 관리합니다.
+        // [종목 관리 통합 맵] active: false로 지정하면 상단 탭에서 숨겨지고 하단 보관함으로 이동합니다.
         const financeKeywordMap = [
-            { keyword: "타이거200IT", code: "139260" },              
-            { keyword: "KODEXIT", code: "266370" },         
-            { keyword: "ACE 미국빅테크TOP7Plus", code: "465580" },            
-            { keyword: "TIGER미국배당다우존스", code: "458730" }, 
-            { keyword: "KIWOOM미국양자컴퓨팅", code: "498270" },             
-            { keyword: "KODEXAI전력핵심설비", code: "487240" }
+            { keyword: "타이거200IT", code: "139260", active: true },              
+            { keyword: "KODEXIT", code: "266370", active: true },         
+            { keyword: "ACE 미국빅테크TOP7Plus", code: "465580", active: true },            
+            { keyword: "TIGER미국배당다우존스", code: "458730", active: true }, 
+            { keyword: "KIWOOM미국양자컴퓨팅", code: "498270", active: true },             
+            { keyword: "KODEXAI전력핵심설비", code: "487240", active: true }
+            
+            // 예시: 나중에 매도한 종목이 생기면 아래처럼 active를 false로 바꿔 보관하시면 됩니다.
+            // { keyword: "과거종목예시", code: "000000", active: false }
         ];
 
         let sheetHeaders = [];       
@@ -143,6 +154,15 @@
             return name.replace(/^["']|["']$/g, '').trim();
         }
 
+        // 종목명으로 active 상태를 판별하는 헬퍼 함수
+        function isItemActive(headerName) {
+            if (!headerName) return true;
+            const comp = headerName.replace(/\s+/g, "").toUpperCase();
+            const found = financeKeywordMap.find(item => comp.includes(item.keyword.replace(/\s+/g, "").toUpperCase()));
+            // 지정되지 않았거나 active가 true이면 활성, 명시적으로 false인 경우에만 비활성
+            return found ? (found.active !== false) : true;
+        }
+
         async function fetchMainAssetData() {
             try {
                 const response = await fetch(mainSheetUrl);
@@ -176,8 +196,17 @@
                     }
                 }
 
-                renderTabs();
-                switchTab(1); 
+                renderTabsAndArchives();
+                
+                // 첫 번째로 활성화되어 있는 탭을 기본 선택
+                let defaultIdx = 1;
+                for (let j = 1; j < sheetHeaders.length; j++) {
+                    if (sheetHeaders[j] && isItemActive(sheetHeaders[j])) {
+                        defaultIdx = j;
+                        break;
+                    }
+                }
+                switchTab(defaultIdx); 
 
             } catch (error) {
                 console.error("자산 로드 오류:", error);
@@ -185,9 +214,14 @@
             }
         }
 
-        function renderTabs() {
-            const container = document.getElementById('tabs-container');
-            container.innerHTML = "";
+        function renderTabsAndArchives() {
+            const tabsContainer = document.getElementById('tabs-container');
+            const archiveContainer = document.getElementById('archive-container');
+            const archiveSection = document.getElementById('archive-section');
+            
+            tabsContainer.innerHTML = "";
+            archiveContainer.innerHTML = "";
+            let hasArchive = false;
 
             for (let j = 1; j < sheetHeaders.length; j++) {
                 if (!sheetHeaders[j]) continue;
@@ -195,39 +229,66 @@
                 const btn = document.createElement('button');
                 btn.id = `tab-btn-${j}`;
                 btn.type = "button";
-                btn.className = "text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap transition-all duration-150";
-                btn.innerText = sheetHeaders[j];
                 btn.addEventListener('click', () => switchTab(j));
                 
-                container.appendChild(btn);
+                if (isItemActive(sheetHeaders[j])) {
+                    // 활성 종목 -> 상단 탭으로
+                    btn.className = "text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap transition-all duration-150";
+                    btn.innerText = sheetHeaders[j];
+                    tabsContainer.appendChild(btn);
+                } else {
+                    // 비활성(매도) 종목 -> 하단 보관함으로
+                    btn.className = "text-[11px] font-medium px-2.5 py-1 rounded-md whitespace-nowrap transition-all duration-150";
+                    btn.innerText = "📦 " + sheetHeaders[j];
+                    archiveContainer.appendChild(btn);
+                    hasArchive = true;
+                }
+            }
+
+            // 보관된 종목이 하나라도 있을 때만 하단 박스를 노출시킵니다.
+            if (hasArchive) {
+                archiveSection.classList.remove('hidden');
+            } else {
+                archiveSection.classList.add('hidden');
             }
         }
 
         function switchTab(index) {
             const rawTabName = sheetHeaders[index] ? sheetHeaders[index].trim() : "";
             const compareName = rawTabName.replace(/\s+/g, "").toUpperCase();
+            const isActive = isItemActive(rawTabName);
 
+            // 모든 버튼 스타일 초기화 (상단 탭과 하단 보관함 버튼 전체 대응)
             for (let j = 1; j < sheetHeaders.length; j++) {
                 const btn = document.getElementById('tab-btn-' + j);
                 if (!btn) continue;
+                
                 if (j === index) {
-                    btn.className = "text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap bg-indigo-600 text-white shadow-sm";
+                    if (isItemActive(sheetHeaders[j])) {
+                        btn.className = "text-xs font-bold px-3 py-1.5 rounded-full whitespace-nowrap bg-indigo-600 text-white shadow-sm";
+                    } else {
+                        btn.className = "text-[11px] font-bold px-2.5 py-1 rounded-md whitespace-nowrap bg-slate-700 text-white shadow-sm";
+                    }
                 } else {
-                    btn.className = "text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200";
+                    if (isItemActive(sheetHeaders[j])) {
+                        btn.className = "text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap bg-slate-100 text-slate-600 hover:bg-slate-200";
+                    } else {
+                        btn.className = "text-[11px] font-medium px-2.5 py-1 rounded-md whitespace-nowrap bg-slate-200/70 text-slate-500 hover:bg-slate-200";
+                    }
                 }
             }
 
-            // [변경 완료] 예외 처리 제거 후, 오직 financeKeywordMap 배열을 돌며 매칭하도록 단일화
             let targetCode = null;
             for (const item of financeKeywordMap) {
-                if (compareName.includes(item.keyword.toUpperCase())) { 
+                if (compareName.includes(item.keyword.replace(/\s+/g, "").toUpperCase())) { 
                     targetCode = item.code; 
                     break; 
                 }
             }
             
             const codeDisplay = targetCode ? ` (${targetCode})` : "";
-            document.getElementById('asset-label').innerText = rawTabName + codeDisplay + " 현황";
+            const archiveLabel = isActive ? "" : " [보관됨]";
+            document.getElementById('asset-label').innerText = rawTabName + codeDisplay + archiveLabel + " 현황";
 
             const currentArray = ColumnDataMaps[index];
             let firstValidIdx = -1;
@@ -275,10 +336,9 @@
         }
 
         function updateLinkAndNoteUI(compareName, index) {
-            // [변경 완료] 이곳 역시 예외 처리를 지우고 통합 맵을 기준으로 코드를 찾습니다.
             let targetCode = null;
             for (const item of financeKeywordMap) {
-                if (compareName.includes(item.keyword.toUpperCase())) { 
+                if (compareName.includes(item.keyword.replace(/\s+/g, "").toUpperCase())) { 
                     targetCode = item.code; 
                     break; 
                 }
