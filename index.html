@@ -75,7 +75,7 @@
                 <p class="text-xs font-bold text-amber-800 uppercase tracking-wider mb-3">
                     <i class="fa-solid fa-note-sticky mr-1.5 text-amber-600"></i>투자 노트 (Note)
                 </p>
-                <div id="note-content-area" class="text-xs text-amber-950 space-y-2.5 max-h-40 overflow-y-auto leading-relaxed">
+                <div id="note-content-area" class="text-xs text-amber-950 space-y-2 max-h-40 overflow-y-auto leading-relaxed">
                     <span class="text-slate-400">메모를 불러오는 중입니다...</span>
                 </div>
             </div>
@@ -88,7 +88,7 @@
     </div>
 
     <script>
-        // 기존 원본 로직 유지 보장 주소
+        // 자산 원본 링크 및 노트 구글시트 주소
         const mainSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
         const noteSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1858564295&single=true&output=csv";
 
@@ -107,7 +107,7 @@
         let globalNoteDatabase = []; 
         let chartInstance = null; 
 
-        // 1. 기존에 잘 되던 원본 자산 데이터 처리 흐름 (100% 동일 복원)
+        // 1. [원터치 차단] 상단 원본 자산 로드 로직 (절대 수정 없음)
         async function fetchMainAssetData() {
             try {
                 const response = await fetch(mainSheetUrl);
@@ -117,7 +117,6 @@
                 const lines = csvText.split(/\r?\n/);
                 if (lines.length < 2) return;
 
-                // 단순 split으로 원본 로직 완벽 복구
                 sheetHeaders = lines[0].split(",");
                 for (let j = 1; j < sheetHeaders.length; j++) {
                     ColumnDataMaps[j] = [];
@@ -146,7 +145,7 @@
                 renderTabs();
                 switchTab(1); 
 
-                // 자산 데이터가 다 나온 후에 Note를 별도로 독립 수신 (상단 먹통 방지 안전장치)
+                // 자산 데이터 완벽 표출 후 독립 수신 진행
                 fetchNoteData();
 
             } catch (error) {
@@ -155,7 +154,7 @@
             }
         }
 
-        // 2. 노트 전용 격리 파싱 함수 (쉼표가 포함되어도 깨지지 않게 보완)
+        // 2. [주인님 맞춤형 수정] 오직 NOTE 시트 전용 파싱 및 매칭 로직
         async function fetchNoteData() {
             try {
                 const response = await fetch(noteSheetUrl);
@@ -165,36 +164,46 @@
                 const lines = csvText.split(/\r?\n/);
                 globalNoteDatabase = [];
 
+                // 첫 줄(헤더: 종목, 메모) 제외하고 2번째 행부터 추출
                 for (let i = 1; i < lines.length; i++) {
                     const line = lines[i].trim();
                     if (!line) continue;
 
-                    // 따옴표와 쉼표를 구분하여 안전하게 분리하는 로직
-                    let row = [];
-                    let insideQuote = false;
-                    let entry = "";
-                    for (let j = 0; j < line.length; j++) {
-                        const char = line[j];
-                        if (char === '"') insideQuote = !insideQuote;
-                        else if (char === ',' && !insideQuote) { row.push(entry.trim()); entry = ""; }
-                        else entry += char;
-                    }
-                    row.push(entry.trim());
+                    // 첫 번째 쉼표를 기준으로 A열(종목코드)과 B열(메모 내용 전체)을 깔끔하게 양분
+                    const firstCommaIdx = line.indexOf(',');
+                    if (firstCommaIdx === -1) continue;
 
-                    if (row.length < 3) continue;
+                    const codeRaw = line.substring(0, firstCommaIdx).trim();
+                    let memoRaw = line.substring(firstCommaIdx + 1).trim();
+
+                    // 문자열 양끝 감싸고 있는 큰따옴표 안전 제거
+                    if (memoRaw.startsWith('"') && memoRaw.endsWith('"')) {
+                        memoRaw = memoRaw.substring(1, memoRaw.length - 1);
+                    }
+
                     globalNoteDatabase.push({
-                        code: row[0].replace(/[^0-9]/g, ""), // 숫자만
-                        date: row[1],
-                        content: row[2].replace(/^"|"$/g, "") // 양끝 따옴표 제거
+                        code: codeRaw.replace(/[^0-9]/g, ""), // 순수 숫자 코드만 추출
+                        memo: memoRaw
                     });
                 }
                 
-                // 현재 켜져있는 탭의 노트 화면을 조용히 새로고침
+                // 현재 선택된 화면 상태에 따라 하단 노트 매칭 리프레시
                 const activeTabIdx = parseFloat(document.querySelector('[id^="tab-btn-"].bg-indigo-600')?.id.replace('tab-btn-', '') || 1);
-                updateNoteSection(activeTabIdx);
+                const rawTabName = sheetHeaders[activeTabIdx] ? sheetHeaders[activeTabIdx].trim() : "";
+                const compareName = rawTabName.replace(/\s+/g, "").toUpperCase();
+                
+                let targetCode = null;
+                if (compareName.includes("KODEXIT")) {
+                    targetCode = "266370";
+                } else {
+                    for (const item of financeKeywordMap) {
+                        if (compareName.includes(item.keyword.toUpperCase())) { targetCode = item.code; break; }
+                    }
+                }
+                updateNoteSection(targetCode);
 
             } catch (error) {
-                console.error("노트 처리 오류 (상단 자산은 정상 작동):", error);
+                console.error("노트 처리 오류:", error);
                 document.getElementById('note-content-area').innerHTML = `<span class="text-slate-400 italic">노트를 불러오지 못했습니다.</span>`;
             }
         }
@@ -233,7 +242,6 @@
 
             document.getElementById('asset-label').innerText = rawTabName + " 현황";
 
-            // 자산 연산 수행
             const currentArray = ColumnDataMaps[index];
             let firstValidIdx = -1;
             for (let k = 0; k < currentArray.length; k++) {
@@ -276,12 +284,9 @@
             updateBaseDayCard(baseDiff, basePercent);
 
             renderChart(index, firstValidIdx, latestValidIdx);
-            
-            // 링크 박스 및 노트 화면 업데이트 연계
             updateLinkAndNoteUI(compareName, index);
         }
 
-        // 링크 및 노트 분리 제어기
         function updateLinkAndNoteUI(compareName, index) {
             let targetCode = null;
             if (compareName.includes("KODEXIT")) {
@@ -304,7 +309,6 @@
             updateNoteSection(targetCode);
         }
 
-        // 노트 화면 출력 엔진
         function updateNoteSection(targetCode) {
             const noteArea = document.getElementById('note-content-area');
             if (!noteArea) return;
@@ -315,16 +319,15 @@
                 return;
             }
 
+            // 코드 매칭 (예: 139260) 진행 후 해당하는 메모 목록 필터링
             const matchedNotes = globalNoteDatabase.filter(note => note.code === targetCode);
 
             if (matchedNotes.length > 0) {
                 matchedNotes.forEach(note => {
                     const memoRow = document.createElement('div');
-                    memoRow.className = "flex flex-col space-y-0.5 border-b border-amber-200/50 pb-2 last:border-0 last:pb-0";
-                    memoRow.innerHTML = `
-                        <span class="text-[10px] font-bold text-amber-700/80"><i class="fa-regular fa-calendar-check mr-1"></i>${note.date}</span>
-                        <p class="text-amber-900 font-medium">${note.content}</p>
-                    `;
+                    memoRow.className = "p-2 border-b border-amber-200/40 last:border-0 font-medium text-amber-950";
+                    // 텍스트 통째로 밀어넣기
+                    memoRow.innerText = note.memo; 
                     noteArea.appendChild(memoRow);
                 });
             } else {
@@ -412,7 +415,6 @@
             });
         }
 
-        // 구동 방식 전면 교체 (메인 에셋 데이터 먼저 확실하게 출력)
         window.onload = fetchMainAssetData;
     </script>
 </body>
