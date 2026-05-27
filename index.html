@@ -81,7 +81,6 @@
     <script>
         const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
 
-        // 종목명과 내부 코드를 매핑하는 테이블 (띄어쓰기, 대소문자 무관하게 매칭됨)
         const naverCodeMap = {
             "TIGER200IT": "139260",
             "ACE미국빅테크TOP7PLUS": "465580",
@@ -173,7 +172,6 @@
         }
 
         function switchTab(index) {
-            // 시트에서 가져온 탭 이름의 모든 공백을 제거하고 대문자로 통일하여 가공합니다.
             const rawTabName = sheetHeaders[index] ? sheetHeaders[index].trim() : "";
             const compareName = rawTabName.replace(/\s+/g, "").toUpperCase();
 
@@ -188,28 +186,23 @@
             }
 
             document.getElementById('asset-label').innerText = rawTabName + " 현황";
-            document.getElementById('current-date').innerText = dateLabels[dateLabels.length - 1];
 
             const linksBox = document.getElementById('finance-links-box');
             const naverLink = document.getElementById('naver-finance-link');
             const googleLink = document.getElementById('google-finance-link');
             
-            // 가공된 이름으로 naverCodeMap에서 코드가 있는지 확인합니다.
             let targetCode = naverCodeMap[compareName] || null;
-            
             if (targetCode) {
                 naverLink.href = "https://finance.naver.com/item/main.naver?code=" + targetCode;
                 googleLink.href = "https://www.google.com/finance/beta/quote/" + targetCode + ":KRX";
-                
-                // hidden을 빼고 grid 레이아웃 클래스들을 안전하게 동적 주입합니다.
                 linksBox.className = "grid grid-cols-2 gap-2 transition-all duration-200";
             } else {
-                // 매칭 실패 시 원상복구하여 숨깁니다.
                 linksBox.className = "hidden gap-2 transition-all duration-200";
             }
 
             const currentArray = ColumnDataMaps[index];
             
+            // 1. 기준일(첫 번째 유효 데이터) 찾기
             let firstValidIdx = -1;
             for (let k = 0; k < currentArray.length; k++) {
                 if (currentArray[k] !== null && !isNaN(currentArray[k])) {
@@ -218,18 +211,32 @@
                 }
             }
 
-            if (firstValidIdx === -1) {
+            // 2. 최신 데이터(값이 있는 가장 마지막 위치) 찾기
+            let latestValidIdx = -1;
+            for (let k = currentArray.length - 1; k >= 0; k--) {
+                if (currentArray[k] !== null && !isNaN(currentArray[k])) {
+                    latestValidIdx = k;
+                    break;
+                }
+            }
+
+            if (firstValidIdx === -1 || latestValidIdx === -1) {
                 document.getElementById('total-amount').innerText = "0";
-                document.getElementById('base-day-label').innerText = "기준일 데이터 없음";
+                document.getElementById('current-date').innerText = "-";
+                document.getElementById('base-day-label').innerText = "데이터 없음";
                 document.getElementById('base-day-change').innerText = "-";
                 if (chartInstance) chartInstance.destroy();
                 return;
             }
 
-            const latestVal = currentArray[currentArray.length - 1] || 0;
+            // 상단 우측 날짜 배지를 실제 데이터가 존재하는 최신 날짜로 매핑
+            document.getElementById('current-date').innerText = dateLabels[latestValidIdx];
+
+            const latestVal = currentArray[latestValidIdx];
             
+            // 3. 전일 데이터(최신 유효 데이터 바로 직전의 유효 데이터) 찾기
             let prevVal = latestVal;
-            for (let k = currentArray.length - 2; k >= firstValidIdx; k--) {
+            for (let k = latestValidIdx - 1; k >= firstValidIdx; k--) {
                 if (currentArray[k] !== null && !isNaN(currentArray[k])) {
                     prevVal = currentArray[k];
                     break;
@@ -250,7 +257,7 @@
             const basePercent = baseVal !== 0 ? (baseDiff / baseVal) * 100 : 0;
             updateBaseDayCard(baseDiff, basePercent);
 
-            renderChart(index, firstValidIdx);
+            renderChart(index, firstValidIdx, latestValidIdx);
         }
 
         function updatePrevDayUI(diff, percent) {
@@ -290,10 +297,13 @@
             }
         }
 
-        function renderChart(index, startIndex) {
+        function renderChart(index, startIndex, endIndex) {
             const ctx = document.getElementById('trendChart').getContext('2d');
-            const filteredLabels = dateLabels.slice(startIndex);
-            const filteredData = ColumnDataMaps[index].slice(startIndex);
+            
+            // 데이터가 있는 구간만 잘라서 차트에 그리기 (미래의 빈 날짜 제외)
+            const filteredLabels = dateLabels.slice(startIndex, endIndex + 1);
+            const filteredData = ColumnDataMaps[index].slice(startIndex, endIndex + 1);
+            
             if (chartInstance) chartInstance.destroy();
             chartInstance = new Chart(ctx, {
                 type: 'line',
