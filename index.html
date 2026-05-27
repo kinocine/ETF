@@ -90,13 +90,14 @@
     <script>
         const mainSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
 
+        // 모든 종목 키워드와 코드를 이곳에서 한 번에 관리합니다.
         const financeKeywordMap = [
             { keyword: "IT", code: "139230" },              
-            { keyword: "타이거200IT", code: "139230" },              
+            { keyword: "타이거200IT", code: "139260" },              
             { keyword: "KODEXIT", code: "266370" },         
-            { keyword: "빅테크", code: "465580" },           
+            { keyword: "빅테크", code: "465580" },            
             { keyword: "양자", code: "498270" },             
-            { keyword: "전력", code: "487240" }              
+            { keyword: "전력", code: "487240" }
         ];
 
         let sheetHeaders = [];       
@@ -105,7 +106,6 @@
         let globalMemosRow = []; 
         let chartInstance = null; 
 
-        // [변경 사항 2] 셀 내부의 줄바꿈(\n)을 가진 데이터를 완벽하게 파싱하는 표준 CSV 엔진으로 전면 교체
         function parseCSV(text) {
             let p = '', r = [];
             let q = false;
@@ -134,7 +134,6 @@
             return r;
         }
 
-        // [변경 사항 3] 구글 시트 하이퍼링크 문장(=HYPERLINK("~~", "종목명"))에서 순수 종목 텍스트만 추출하는 헬퍼 함수
         function cleanHeaderName(name) {
             if (!name) return "";
             let match = name.match(/=HYPERLINK\(".*?",\s*"(.*?)"\)/i);
@@ -153,9 +152,7 @@
                 const parsedRows = parseCSV(csvText);
                 if (parsedRows.length < 2) return;
 
-                // 1행의 수식/링크 찌꺼기를 걸러내고 순수 이름만 헤더 배열에 저장합니다.
                 sheetHeaders = parsedRows[0].map(cleanHeaderName);
-                
                 globalMemosRow = parsedRows[1] || [];
 
                 for (let j = 1; j < sheetHeaders.length; j++) {
@@ -220,12 +217,12 @@
                 }
             }
 
+            // [변경 완료] 예외 처리 제거 후, 오직 financeKeywordMap 배열을 돌며 매칭하도록 단일화
             let targetCode = null;
-            if (compareName.includes("KODEXIT")) {
-                targetCode = "266370";
-            } else {
-                for (const item of financeKeywordMap) {
-                    if (compareName.includes(item.keyword.toUpperCase())) { targetCode = item.code; break; }
+            for (const item of financeKeywordMap) {
+                if (compareName.includes(item.keyword.toUpperCase())) { 
+                    targetCode = item.code; 
+                    break; 
                 }
             }
             
@@ -278,12 +275,12 @@
         }
 
         function updateLinkAndNoteUI(compareName, index) {
+            // [변경 완료] 이곳 역시 예외 처리를 지우고 통합 맵을 기준으로 코드를 찾습니다.
             let targetCode = null;
-            if (compareName.includes("KODEXIT")) {
-                targetCode = "266370";
-            } else {
-                for (const item of financeKeywordMap) {
-                    if (compareName.includes(item.keyword.toUpperCase())) { targetCode = item.code; break; }
+            for (const item of financeKeywordMap) {
+                if (compareName.includes(item.keyword.toUpperCase())) { 
+                    targetCode = item.code; 
+                    break; 
                 }
             }
             
@@ -296,7 +293,6 @@
                 linksBox.className = "hidden gap-2";
             }
 
-            // [변경 사항 4] 메모 로드 시 문자열 인코딩 및 출력을 텍스트 원본 보존 방식으로 안정화
             const noteArea = document.getElementById('note-content-area');
             if (noteArea) {
                 noteArea.innerHTML = "";
@@ -305,7 +301,6 @@
                 if (currentMemo && currentMemo !== "") {
                     const memoRow = document.createElement('div');
                     memoRow.className = "pb-2 text-amber-900 font-medium";
-                    // innerHTML 대신 textContent를 주어 내부 엔터(\n) 문자를 그대로 브라우저에 뿌려줍니다.
                     memoRow.textContent = currentMemo;
                     noteArea.appendChild(memoRow);
                 } else {
