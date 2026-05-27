@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>대시보드</title>
+    <title>Happy 평촌 대시보드 V2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -21,7 +21,7 @@
 
         <div class="mt-4 border-b border-slate-200 pb-3">
             <div id="tabs-container" class="flex flex-wrap gap-2">
-                <span class="text-sm text-slate-400 px-3 py-1">탭 로딩 중...</span>
+                <span class="text-sm text-slate-400 px-3 py-1">데이터 로딩 중...</span>
             </div>
         </div>
 
@@ -71,6 +71,15 @@
                 </div>
             </div>
 
+            <div class="bg-amber-50/70 border border-amber-200/60 rounded-2xl p-5 shadow-sm">
+                <p class="text-xs font-bold text-amber-800 uppercase tracking-wider mb-3">
+                    <i class="fa-solid fa-note-sticky mr-1.5 text-amber-600"></i>투자 노트 (Note)
+                </p>
+                <div id="note-content-area" class="text-xs text-amber-950 space-y-2.5 max-h-40 overflow-y-auto leading-relaxed">
+                    <span class="text-slate-400">메모를 불러오는 중입니다...</span>
+                </div>
+            </div>
+
         </main>
 
         <footer class="py-4 text-center border-t border-slate-100 text-xs text-slate-400">
@@ -79,9 +88,13 @@
     </div>
 
     <script>
-        const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
+        // 1. 구글 스프레드시트 웹 게시 URL 설정
+        const mainSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
+        
+        // 주인님께서 만드신 [Note] 시트의 gid 주소입니다. (현재 임의 설정된 gid를 실제 Note 탭 gid로 확인 후 교체해주세요)
+        const noteSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1858564295&single=true&output=csv";
 
-        // 핵심 키워드 매핑 테이블 (글자가 포함되어 있으면 상호 무관하게 자동 연동)
+        // 2. 종목명 텍스트 유연 매칭 키워드 맵 (종목 순서 변경 대응용)
         const financeKeywordMap = [
             { keyword: "IT", code: "139260" },              
             { keyword: "KODEXIT", code: "266370" },         
@@ -93,52 +106,93 @@
         let sheetHeaders = [];       
         let dateLabels = [];     
         let ColumnDataMaps = {}; 
+        let globalNoteDatabase = []; // Note 시트의 데이터를 가공해 저장할 전역 배열
         let chartInstance = null; 
 
-        async function fetchGoogleSheetData() {
+        // 3. 자산 데이터와 노트 데이터를 병렬로 동시 페칭
+        async function fetchAllDashboardData() {
             try {
-                const response = await fetch(sheetUrl);
-                if (!response.ok) throw new Error("네트워크 응답 불량");
-                const csvText = await response.text();
+                const [mainResponse, noteResponse] = await Promise.all([
+                    fetch(mainSheetUrl),
+                    fetch(noteSheetUrl)
+                ]);
+
+                if (!mainResponse.ok || !noteResponse.ok) throw new Error("시트 응답 불량");
                 
-                const lines = csvText.split(/\r?\n/);
-                if (lines.length < 2) return;
+                const mainCsvText = await mainResponse.text();
+                const noteCsvText = await noteResponse.text();
 
-                sheetHeaders = parseCSVLine(lines[0]);
+                // 3-1. 자산 데이터 파싱
+                parseMainAssetData(mainCsvText);
                 
-                for (let j = 1; j < sheetHeaders.length; j++) {
-                    ColumnDataMaps[j] = [];
-                }
-                dateLabels = [];
-
-                for (let i = 1; i < lines.length; i++) {
-                    const rowText = lines[i].trim();
-                    if (!rowText) continue;
-                    
-                    const columns = parseCSVLine(rowText);
-                    if (!columns[0]) continue; 
-
-                    dateLabels.push(columns[0]);
-
-                    for (let j = 1; j < sheetHeaders.length; j++) {
-                        let val = null;
-                        if (columns[j] !== undefined && columns[j] !== null && columns[j].trim() !== "") {
-                            const num = parseFloat(columns[j].replace(/[^0-9.-]/g, ""));
-                            if (!isNaN(num)) val = num;
-                        }
-                        ColumnDataMaps[j].push(val);
-                    }
-                }
+                // 3-2. 노트 데이터 파싱
+                parseNoteData(noteCsvText);
 
                 renderTabs();
                 switchTab(1); 
 
             } catch (error) {
-                console.error("데이터 로딩 실패:", error);
+                console.error("데이터 통합 로딩 실패:", error);
                 document.getElementById('current-date').innerText = "오류 발생";
+                document.getElementById('note-content-area').innerText = "네트워크 오류로 메모를 가져오지 못했습니다.";
             }
         }
 
+        // 자산 CSV 처리기
+        function parseMainAssetData(csvText) {
+            const lines = csvText.split(/\r?\n/);
+            if (lines.length < 2) return;
+
+            sheetHeaders = parseCSVLine(lines[0]);
+            
+            for (let j = 1; j < sheetHeaders.length; j++) {
+                ColumnDataMaps[j] = [];
+            }
+            dateLabels = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const rowText = lines[i].trim();
+                if (!rowText) continue;
+                
+                const columns = parseCSVLine(rowText);
+                if (!columns[0]) continue; 
+
+                dateLabels.push(columns[0]);
+
+                for (let j = 1; j < sheetHeaders.length; j++) {
+                    let val = null;
+                    if (columns[j] !== undefined && columns[j] !== null && columns[j].trim() !== "") {
+                        const num = parseFloat(columns[j].replace(/[^0-9.-]/g, ""));
+                        if (!isNaN(num)) val = num;
+                    }
+                    ColumnDataMaps[j].push(val);
+                }
+            }
+        }
+
+        // 노트 CSV 처리기 (A열: 종목코드, B열: 날짜, C열: 내용)
+        function parseNoteData(csvText) {
+            const lines = csvText.split(/\r?\n/);
+            globalNoteDatabase = [];
+
+            if (lines.length < 2) return; // 헤더만 있거나 비어있으면 종료
+
+            for (let i = 1; i < lines.length; i++) {
+                const rowText = lines[i].trim();
+                if (!rowText) continue;
+
+                const columns = parseCSVLine(rowText);
+                if (columns.length < 3) continue; // 데이터 열이 부족하면 패스
+
+                globalNoteDatabase.push({
+                    code: columns[0].trim(), // 종목코드 매칭 키
+                    date: columns[1].trim(), // 기록 날짜
+                    content: columns[2].trim() // 기록 내용
+                });
+            }
+        }
+
+        // CSV 파싱 정규식 연산 함수
         function parseCSVLine(text) {
             const result = [];
             const regex = /(?!\s|$)\s*(?:"([^"\\]*(?:\\[\s\S][^"\\]*)*)"|([^",\s\t\n\r]*))\s*(?:,|$)/g;
@@ -154,6 +208,7 @@
             return result;
         }
 
+        // 상단 종목 이동 버튼(탭) 생성
         function renderTabs() {
             const container = document.getElementById('tabs-container');
             container.innerHTML = "";
@@ -172,6 +227,7 @@
             }
         }
 
+        // 탭 전환 핵심 비즈니스 로직
         function switchTab(index) {
             const rawTabName = sheetHeaders[index] ? sheetHeaders[index].trim() : "";
             const compareName = rawTabName.replace(/\s+/g, "").toUpperCase();
@@ -188,12 +244,8 @@
 
             document.getElementById('asset-label').innerText = rawTabName + " 현황";
 
-            const linksBox = document.getElementById('finance-links-box');
-            const naverLink = document.getElementById('naver-finance-link');
-            const googleLink = document.getElementById('google-finance-link');
-            
+            // 4. 종목 매칭에 따른 코드 식별 연산
             let targetCode = null;
-            
             if (compareName.includes("KODEXIT")) {
                 targetCode = "266370";
             } else {
@@ -205,16 +257,40 @@
                 }
             }
             
+            // 4-1. 외부 금융사 하이퍼링크 분기 처리
+            const linksBox = document.getElementById('finance-links-box');
             if (targetCode) {
-                naverLink.href = "https://finance.naver.com/item/main.naver?code=" + targetCode;
-                googleLink.href = "https://www.google.com/finance/beta/quote/" + targetCode + ":KRX";
+                document.getElementById('naver-finance-link').href = "https://finance.naver.com/item/main.naver?code=" + targetCode;
+                document.getElementById('google-finance-link').href = "https://www.google.com/finance/beta/quote/" + targetCode + ":KRX";
                 linksBox.className = "grid grid-cols-2 gap-2 transition-all duration-200";
             } else {
                 linksBox.className = "hidden gap-2 transition-all duration-200";
             }
 
+            // 4-2. [신규 로직] 종목 코드 매칭을 통한 노트 데이터 동적 필터링 및 타임라인 렌더링
+            const noteArea = document.getElementById('note-content-area');
+            noteArea.innerHTML = "";
+
+            // 전역 노트 DB에서 현재 식별된 종목코드와 일치하는 것만 추출
+            const matchedNotes = globalNoteDatabase.filter(note => note.code === targetCode);
+
+            if (matchedNotes.length > 0) {
+                matchedNotes.forEach(note => {
+                    const memoRow = document.createElement('div');
+                    memoRow.className = "flex flex-col space-y-0.5 border-b border-amber-200/50 pb-2 last:border-0 last:pb-0";
+                    
+                    memoRow.innerHTML = `
+                        <span class="text-[10px] font-bold text-amber-700/80"><i class="fa-regular fa-calendar-check mr-1"></i>${note.date}</span>
+                        <p class="text-amber-900 font-medium">${note.content}</p>
+                    `;
+                    noteArea.appendChild(memoRow);
+                });
+            } else {
+                noteArea.innerHTML = `<span class="text-slate-400 italic">해당 종목에 등록된 투자 노트가 없습니다.</span>`;
+            }
+
+            // 5. 미래 공백 유효 데이터 추출 알고리즘 및 차트 갱신
             const currentArray = ColumnDataMaps[index];
-            
             let firstValidIdx = -1;
             for (let k = 0; k < currentArray.length; k++) {
                 if (currentArray[k] !== null && !isNaN(currentArray[k])) {
@@ -243,7 +319,6 @@
             document.getElementById('current-date').innerText = dateLabels[latestValidIdx];
 
             const latestVal = currentArray[latestValidIdx];
-            
             let prevVal = latestVal;
             for (let k = latestValidIdx - 1; k >= firstValidIdx; k--) {
                 if (currentArray[k] !== null && !isNaN(currentArray[k])) {
@@ -269,6 +344,7 @@
             renderChart(index, firstValidIdx, latestValidIdx);
         }
 
+        // 전일비 UI 바인딩 변환기
         function updatePrevDayUI(diff, percent) {
             const textEl = document.getElementById('prev-day-change');
             const iconEl = document.getElementById('prev-day-icon');
@@ -286,6 +362,7 @@
             }
         }
 
+        // 누적 기준일비 성과지표 카드 변환기
         function updateBaseDayCard(diff, percent) {
             const textEl = document.getElementById('base-day-change');
             const badgeEl = document.getElementById('base-day-badge');
@@ -306,6 +383,7 @@
             }
         }
 
+        // Chart.js 시각화 코어 엔진 구동
         function renderChart(index, startIndex, endIndex) {
             const ctx = document.getElementById('trendChart').getContext('2d');
             
@@ -349,7 +427,7 @@
             });
         }
 
-        window.onload = fetchGoogleSheetData;
+        window.onload = fetchAllDashboardData;
     </script>
 </body>
 </html>
