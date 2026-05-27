@@ -75,7 +75,7 @@
                 <p class="text-xs font-bold text-amber-800 uppercase tracking-wider mb-3">
                     <i class="fa-solid fa-note-sticky mr-1.5 text-amber-600"></i>투자 노트 (Note)
                 </p>
-                <div id="note-content-area" class="text-xs text-amber-950 space-y-2.5 max-h-40 overflow-y-auto leading-relaxed">
+                <div id="note-content-area" class="text-xs text-amber-950 space-y-2.5 max-h-40 overflow-y-auto leading-relaxed" style="white-space: pre-wrap;">
                     <span class="text-slate-400">메모를 불러오는 중입니다...</span>
                 </div>
             </div>
@@ -88,7 +88,6 @@
     </div>
 
     <script>
-        // 메인 시트 주소 하나로 통합하여 연동합니다.
         const mainSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
 
         const financeKeywordMap = [
@@ -103,34 +102,46 @@
         let sheetHeaders = [];       
         let dateLabels = [];     
         let ColumnDataMaps = {}; 
-        let globalMemosRow = []; // 2행의 메모 데이터를 담을 공간
+        let globalMemosRow = []; 
         let chartInstance = null; 
 
+        // [변경 사항 2] 셀 내부의 줄바꿈(\n)을 가진 데이터를 완벽하게 파싱하는 표준 CSV 엔진으로 전면 교체
         function parseCSV(text) {
-            const lines = text.split(/\r?\n/);
-            const result = [];
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (!line) continue;
+            let p = '', r = [];
+            let q = false;
+            let row = [''];
+            
+            for (let i = 0; i < text.length; i++) {
+                let c = text[i];
+                let next = text[i+1];
                 
-                const row = [];
-                let insideQuote = false;
-                let entry = "";
-                for (let j = 0; j < line.length; j++) {
-                    const char = line[j];
-                    if (char === '"') {
-                        insideQuote = !insideQuote;
-                    } else if (char === ',' && !insideQuote) {
-                        row.push(entry.trim());
-                        entry = "";
-                    } else {
-                        entry += char;
-                    }
+                if (c === '"') {
+                    if (q && next === '"') { row[row.length - 1] += '"'; i++; }
+                    else { q = !q; }
+                } else if (c === ',' && !q) {
+                    row.push('');
+                } else if ((c === '\r' || c === '\n') && !q) {
+                    if (c === '\r' && next === '\n') { i++; }
+                    r.push(row.map(v => v.trim()));
+                    row = [''];
+                } else {
+                    row[row.length - 1] += c;
                 }
-                row.push(entry.trim());
-                result.push(row);
             }
-            return result;
+            if (row.length > 1 || row[0] !== '') {
+                r.push(row.map(v => v.trim()));
+            }
+            return r;
+        }
+
+        // [변경 사항 3] 구글 시트 하이퍼링크 문장(=HYPERLINK("~~", "종목명"))에서 순수 종목 텍스트만 추출하는 헬퍼 함수
+        function cleanHeaderName(name) {
+            if (!name) return "";
+            let match = name.match(/=HYPERLINK\(".*?",\s*"(.*?)"\)/i);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+            return name.replace(/^["']|["']$/g, '').trim();
         }
 
         async function fetchMainAssetData() {
@@ -142,10 +153,9 @@
                 const parsedRows = parseCSV(csvText);
                 if (parsedRows.length < 2) return;
 
-                // 1행: 종목 이름들 저장
-                sheetHeaders = parsedRows[0];
+                // 1행의 수식/링크 찌꺼기를 걸러내고 순수 이름만 헤더 배열에 저장합니다.
+                sheetHeaders = parsedRows[0].map(cleanHeaderName);
                 
-                // 사장님 아이디어 반영: 2행을 통째로 메모 내용으로 가져옵니다!
                 globalMemosRow = parsedRows[1] || [];
 
                 for (let j = 1; j < sheetHeaders.length; j++) {
@@ -153,7 +163,6 @@
                 }
                 dateLabels = [];
 
-                // 데이터 숫자는 3행(배열 인덱스 2)부터 시작합니다.
                 for (let i = 2; i < parsedRows.length; i++) {
                     const columns = parsedRows[i];
                     if (!columns[0]) continue; 
@@ -287,16 +296,17 @@
                 linksBox.className = "hidden gap-2";
             }
 
-            // 시트의 해당 열 인덱스(index)의 2행 메모를 직접 가져와 보여줍니다.
+            // [변경 사항 4] 메모 로드 시 문자열 인코딩 및 출력을 텍스트 원본 보존 방식으로 안정화
             const noteArea = document.getElementById('note-content-area');
             if (noteArea) {
                 noteArea.innerHTML = "";
-                const currentMemo = globalMemosRow[index] ? globalMemosRow[index].trim() : "";
+                let currentMemo = globalMemosRow[index] ? globalMemosRow[index].trim() : "";
 
                 if (currentMemo && currentMemo !== "") {
                     const memoRow = document.createElement('div');
-                    memoRow.className = "flex flex-col space-y-0.5 pb-2";
-                    memoRow.innerHTML = `<p class="text-amber-900 font-medium">${currentMemo}</p>`;
+                    memoRow.className = "pb-2 text-amber-900 font-medium";
+                    // innerHTML 대신 textContent를 주어 내부 엔터(\n) 문자를 그대로 브라우저에 뿌려줍니다.
+                    memoRow.textContent = currentMemo;
                     noteArea.appendChild(memoRow);
                 } else {
                     noteArea.innerHTML = `<span class="text-slate-400 italic">해당 종목에 등록된 투자 노트가 없습니다.</span>`;
