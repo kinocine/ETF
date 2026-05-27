@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy 평촌 대시보드 V2.1</title>
+    <title>Happy 평촌 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -53,7 +53,7 @@
                 </div>
             </div>
 
-            <div id="finance-links-box" class="hidden gap-2 transition-all duration-200">
+            <div id="finance-links-box" class="hidden gap-2">
                 <a id="naver-finance-link" href="#" target="_blank" class="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl py-2.5 px-3 flex items-center justify-between font-semibold text-xs shadow-sm transition-colors w-full">
                     <span><i class="fa-solid fa-money-bill-trend-up mr-1 text-emerald-600"></i>네이버증권</span>
                     <i class="fa-solid fa-chevron-right text-[10px] text-emerald-500"></i>
@@ -88,11 +88,10 @@
     </div>
 
     <script>
-        // 구글 스프레드시트 웹 게시 URL 설정 (전체 문서 수신)
+        // 기존 원본 로직 유지 보장 주소
         const mainSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
         const noteSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1858564295&single=true&output=csv";
 
-        // 키워드 매칭 테이블 보완
         const financeKeywordMap = [
             { keyword: "IT", code: "139260" },              
             { keyword: "타이거200IT", code: "139260" },              
@@ -108,99 +107,95 @@
         let globalNoteDatabase = []; 
         let chartInstance = null; 
 
-        // 따옴표 및 내부 쉼표 처리가 완벽한 정밀 CSV 파싱 함수
-        function parseSafeCSV(text) {
-            const lines = text.split(/\r?\n/);
-            const result = [];
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (!line) continue;
-                
-                const row = [];
-                let insideQuote = false;
-                let entry = "";
-                
-                for (let j = 0; j < line.length; j++) {
-                    const char = line[j];
-                    if (char === '"') {
-                        insideQuote = !insideQuote;
-                    } else if (char === ',' && !insideQuote) {
-                        row.push(entry.trim());
-                        entry = "";
-                    } else {
-                        entry += char;
-                    }
-                }
-                row.push(entry.trim());
-                result.push(row);
-            }
-            return result;
-        }
-
-        // 데이터 통합 비동기 호출기
-        async function fetchAllDashboardData() {
+        // 1. 기존에 잘 되던 원본 자산 데이터 처리 흐름 (100% 동일 복원)
+        async function fetchMainAssetData() {
             try {
-                const [mainResponse, noteResponse] = await Promise.all([
-                    fetch(mainSheetUrl),
-                    fetch(noteSheetUrl)
-                ]);
-
-                if (!mainResponse.ok || !noteResponse.ok) throw new Error("시트 연결 실패");
+                const response = await fetch(mainSheetUrl);
+                if (!response.ok) throw new Error("메인 데이터 응답 오류");
+                const csvText = await response.text();
                 
-                const mainCsvText = await mainResponse.text();
-                const noteCsvText = await noteResponse.text();
+                const lines = csvText.split(/\r?\n/);
+                if (lines.length < 2) return;
 
-                const mainRows = parseSafeCSV(mainCsvText);
-                const noteRows = parseSafeCSV(noteCsvText);
-
-                if (mainRows.length < 2) return;
-
-                // 자산 구조 데이터 생성
-                sheetHeaders = mainRows[0];
+                // 단순 split으로 원본 로직 완벽 복구
+                sheetHeaders = lines[0].split(",");
                 for (let j = 1; j < sheetHeaders.length; j++) {
                     ColumnDataMaps[j] = [];
                 }
                 dateLabels = [];
 
-                for (let i = 1; i < mainRows.length; i++) {
-                    const columns = mainRows[i];
-                    if (!columns[0]) continue;
+                for (let i = 1; i < lines.length; i++) {
+                    const rowText = lines[i].trim();
+                    if (!rowText) continue;
+                    
+                    const columns = rowText.split(",");
+                    if (!columns[0]) continue; 
 
                     dateLabels.push(columns[0]);
 
                     for (let j = 1; j < sheetHeaders.length; j++) {
                         let val = null;
                         if (columns[j] !== undefined && columns[j] !== null && columns[j].trim() !== "") {
-                            // 숫자 형식이 맞는지 정밀 정제 필터링
                             const num = parseFloat(columns[j].replace(/[^0-9.-]/g, ""));
                             if (!isNaN(num)) val = num;
                         }
-                        ColumnDataMaps[j].push(val); // 숫자가 없으면 고의로 null 삽입
-                    }
-                }
-                
-                // 노트 데이터 로드 
-                globalNoteDatabase = [];
-                if (noteRows.length > 1) {
-                    for (let i = 1; i < noteRows.length; i++) {
-                        const columns = noteRows[i];
-                        if (columns.length < 3) continue;
-                        globalNoteDatabase.push({
-                            code: columns[0].replace(/[^0-9]/g, ""), 
-                            date: columns[1],
-                            content: columns[2]
-                        });
+                        ColumnDataMaps[j].push(val);
                     }
                 }
 
                 renderTabs();
                 switchTab(1); 
 
+                // 자산 데이터가 다 나온 후에 Note를 별도로 독립 수신 (상단 먹통 방지 안전장치)
+                fetchNoteData();
+
             } catch (error) {
-                console.error("대시보드 통신 및 데이터 오류:", error);
-                document.getElementById('current-date').innerText = "통신 실패";
-                document.getElementById('note-content-area').innerText = "구글 시트 게시 주소 혹은 네트워크 상태를 확인하세요.";
+                console.error("자산 로드 오류:", error);
+                document.getElementById('current-date').innerText = "로드 실패";
+            }
+        }
+
+        // 2. 노트 전용 격리 파싱 함수 (쉼표가 포함되어도 깨지지 않게 보완)
+        async function fetchNoteData() {
+            try {
+                const response = await fetch(noteSheetUrl);
+                if (!response.ok) throw new Error("노트 응답 오류");
+                const csvText = await response.text();
+                
+                const lines = csvText.split(/\r?\n/);
+                globalNoteDatabase = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+
+                    // 따옴표와 쉼표를 구분하여 안전하게 분리하는 로직
+                    let row = [];
+                    let insideQuote = false;
+                    let entry = "";
+                    for (let j = 0; j < line.length; j++) {
+                        const char = line[j];
+                        if (char === '"') insideQuote = !insideQuote;
+                        else if (char === ',' && !insideQuote) { row.push(entry.trim()); entry = ""; }
+                        else entry += char;
+                    }
+                    row.push(entry.trim());
+
+                    if (row.length < 3) continue;
+                    globalNoteDatabase.push({
+                        code: row[0].replace(/[^0-9]/g, ""), // 숫자만
+                        date: row[1],
+                        content: row[2].replace(/^"|"$/g, "") // 양끝 따옴표 제거
+                    });
+                }
+                
+                // 현재 켜져있는 탭의 노트 화면을 조용히 새로고침
+                const activeTabIdx = parseFloat(document.querySelector('[id^="tab-btn-"].bg-indigo-600')?.id.replace('tab-btn-', '') || 1);
+                updateNoteSection(activeTabIdx);
+
+            } catch (error) {
+                console.error("노트 처리 오류 (상단 자산은 정상 작동):", error);
+                document.getElementById('note-content-area').innerHTML = `<span class="text-slate-400 italic">노트를 불러오지 못했습니다.</span>`;
             }
         }
 
@@ -238,15 +233,62 @@
 
             document.getElementById('asset-label').innerText = rawTabName + " 현황";
 
+            // 자산 연산 수행
+            const currentArray = ColumnDataMaps[index];
+            let firstValidIdx = -1;
+            for (let k = 0; k < currentArray.length; k++) {
+                if (currentArray[k] !== null && !isNaN(currentArray[k])) { firstValidIdx = k; break; }
+            }
+
+            let latestValidIdx = -1;
+            for (let k = currentArray.length - 1; k >= 0; k--) {
+                if (currentArray[k] !== null && !isNaN(currentArray[k])) { latestValidIdx = k; break; }
+            }
+
+            if (firstValidIdx === -1 || latestValidIdx === -1) {
+                document.getElementById('total-amount').innerText = "0";
+                document.getElementById('current-date').innerText = "-";
+                document.getElementById('base-day-change').innerText = "-";
+                if (chartInstance) chartInstance.destroy();
+                return;
+            }
+
+            document.getElementById('current-date').innerText = dateLabels[latestValidIdx];
+            const latestVal = currentArray[latestValidIdx];
+            
+            let prevVal = latestVal;
+            for (let k = latestValidIdx - 1; k >= firstValidIdx; k--) {
+                if (currentArray[k] !== null && !isNaN(currentArray[k])) { prevVal = currentArray[k]; break; }
+            }
+            
+            const baseVal = currentArray[firstValidIdx];
+            const startActiveDate = dateLabels[firstValidIdx]; 
+
+            document.getElementById('total-amount').innerText = latestVal.toLocaleString();
+
+            const prevDiff = latestVal - prevVal;
+            const prevPercent = prevVal !== 0 ? (prevDiff / prevVal) * 100 : 0;
+            updatePrevDayUI(prevDiff, prevPercent);
+
+            document.getElementById('base-day-label').innerText = "기준일(" + startActiveDate + ") 대비 총 증감";
+            const baseDiff = latestVal - baseVal;
+            const basePercent = baseVal !== 0 ? (baseDiff / baseVal) * 100 : 0;
+            updateBaseDayCard(baseDiff, basePercent);
+
+            renderChart(index, firstValidIdx, latestValidIdx);
+            
+            // 링크 박스 및 노트 화면 업데이트 연계
+            updateLinkAndNoteUI(compareName, index);
+        }
+
+        // 링크 및 노트 분리 제어기
+        function updateLinkAndNoteUI(compareName, index) {
             let targetCode = null;
             if (compareName.includes("KODEXIT")) {
                 targetCode = "266370";
             } else {
                 for (const item of financeKeywordMap) {
-                    if (compareName.includes(item.keyword.toUpperCase())) {
-                        targetCode = item.code;
-                        break;
-                    }
+                    if (compareName.includes(item.keyword.toUpperCase())) { targetCode = item.code; break; }
                 }
             }
             
@@ -254,14 +296,24 @@
             if (targetCode) {
                 document.getElementById('naver-finance-link').href = "https://finance.naver.com/item/main.naver?code=" + targetCode;
                 document.getElementById('google-finance-link').href = "https://www.google.com/finance/beta/quote/" + targetCode + ":KRX";
-                linksBox.className = "grid grid-cols-2 gap-2 transition-all duration-200";
+                linksBox.className = "grid grid-cols-2 gap-2";
             } else {
-                linksBox.className = "hidden gap-2 transition-all duration-200";
+                linksBox.className = "hidden gap-2";
             }
 
-            // 노트 실시간 필터링 바인딩
+            updateNoteSection(targetCode);
+        }
+
+        // 노트 화면 출력 엔진
+        function updateNoteSection(targetCode) {
             const noteArea = document.getElementById('note-content-area');
+            if (!noteArea) return;
+            
             noteArea.innerHTML = "";
+            if (!targetCode) {
+                noteArea.innerHTML = `<span class="text-slate-400 italic">해당 종목에 등록된 투자 노트가 없습니다.</span>`;
+                return;
+            }
 
             const matchedNotes = globalNoteDatabase.filter(note => note.code === targetCode);
 
@@ -278,45 +330,90 @@
             } else {
                 noteArea.innerHTML = `<span class="text-slate-400 italic">해당 종목에 등록된 투자 노트가 없습니다.</span>`;
             }
+        }
 
-            // [핵심 디버깅 알고리즘] 미래의 빈 셀을 제외하고, 실제 데이터가 존재하는 행만 골라내는 연산
-            const currentArray = ColumnDataMaps[index];
+        function updatePrevDayUI(diff, percent) {
+            const textEl = document.getElementById('prev-day-change');
+            const iconEl = document.getElementById('prev-day-icon');
+            const sign = diff > 0 ? '+' : '';
+            textEl.innerText = sign + diff.toLocaleString() + " (" + sign + percent.toFixed(2) + "%)";
+            if (diff > 0) {
+                textEl.className = "text-sm font-bold text-red-500";
+                iconEl.className = "text-xs text-red-500 fa-solid fa-arrow-trend-up";
+            } else if (diff < 0) {
+                textEl.className = "text-sm font-bold text-blue-500";
+                iconEl.className = "text-xs text-blue-500 fa-solid fa-arrow-trend-down";
+            } else {
+                textEl.className = "text-sm font-bold text-slate-400";
+                iconEl.className = "text-xs text-slate-400 fa-solid fa-minus";
+            }
+        }
+
+        function updateBaseDayCard(diff, percent) {
+            const textEl = document.getElementById('base-day-change');
+            const badgeEl = document.getElementById('base-day-badge');
+            const sign = diff > 0 ? '+' : '';
+            textEl.innerText = sign + diff.toLocaleString() + " (" + sign + percent.toFixed(2) + "%)";
+            if (diff > 0) {
+                textEl.className = "text-xl font-bold text-red-600";
+                badgeEl.className = "w-10 h-10 rounded-full flex items-center justify-center text-lg bg-red-50 text-red-600";
+                badgeEl.innerHTML = '<i class="fa-solid fa-arrow-trend-up"></i>';
+            } else if (diff < 0) {
+                textEl.className = "text-xl font-bold text-blue-600";
+                badgeEl.className = "w-10 h-10 rounded-full flex items-center justify-center text-lg bg-blue-50 text-blue-600";
+                badgeEl.innerHTML = '<i class="fa-solid fa-arrow-trend-down"></i>';
+            } else {
+                textEl.className = "text-xl font-bold text-slate-500";
+                badgeEl.className = "w-10 h-10 rounded-full flex items-center justify-center text-lg bg-slate-100 text-slate-500";
+                badgeEl.innerHTML = '<i class="fa-solid fa-minus"></i>';
+            }
+        }
+
+        function renderChart(index, startIndex, endIndex) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
             
-            // 1) 최초로 데이터가 시작된 행 찾기
-            let firstValidIdx = -1;
-            for (let k = 0; k < currentArray.length; k++) {
-                if (currentArray[k] !== null && !isNaN(currentArray[k])) {
-                    firstValidIdx = k;
-                    break;
-                }
-            }
-
-            // 2) [중요] 미래에 미리 만들어둔 빈 셀을 무시하고, 실제 숫자가 적힌 '가장 최신 행' 찾기
-            let latestValidIdx = -1;
-            for (let k = currentArray.length - 1; k >= 0; k--) {
-                if (currentArray[k] !== null && !isNaN(currentArray[k])) {
-                    latestValidIdx = k;
-                    break;
-                }
-            }
-
-            // 예외처리: 데이터가 아예 없는 경우
-            if (firstValidIdx === -1 || latestValidIdx === -1) {
-                document.getElementById('total-amount').innerText = "0";
-                document.getElementById('current-date').innerText = "-";
-                document.getElementById('base-day-label').innerText = "데이터 없음";
-                document.getElementById('base-day-change').innerText = "-";
-                if (chartInstance) chartInstance.destroy();
-                return;
-            }
-
-            // 헤더 날짜 표시를 구글 시트의 전체 마지막 날짜가 아니라, 실제 숫자가 찍힌 날짜(예: 5월 27일)로 대입
-            document.getElementById('current-date').innerText = dateLabels[latestValidIdx];
-
-            const latestVal = currentArray[latestValidIdx];
+            const filteredLabels = dateLabels.slice(startIndex, endIndex + 1);
+            const filteredData = ColumnDataMaps[index].slice(startIndex, endIndex + 1);
             
-            // 3) 직전 유효 데이터 행 역추적 (전일 대비용)
-            let prevVal = latestVal;
-            for (let k = latestValidIdx - 1; k >= firstValidIdx; k--) {
-                if (currentArray[k] !== null && !isNaN(currentArray[k])) {
-                    prevVal = currentArray[k];
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: filteredLabels,
+                    datasets: [{
+                        label: sheetHeaders[index],
+                        data: filteredData,
+                        borderColor: '#4f46e5',
+                        borderWidth: 2.5,
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
+                        fill: false,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#94a3b8', maxTicksLimit: 8 } },
+                        y: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                font: { size: 9 },
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return value >= 10000 ? (value / 10000).toLocaleString() + '만' : value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 구동 방식 전면 교체 (메인 에셋 데이터 먼저 확실하게 출력)
+        window.onload = fetchMainAssetData;
+    </script>
+</body>
+</html>
