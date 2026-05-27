@@ -81,13 +81,14 @@
     <script>
         const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
 
-        const naverCodeMap = {
-            "TIGER200IT": "139260",
-            "ACE미국빅테크TOP7PLUS": "465580",
-            "KODEXIT": "266370",
-            "KODEXAI전력핵심설비": "487240",
-            "KIWOOM미국양자컴퓨팅": "498270"
-        };
+        // 핵심 키워드 매핑 테이블 (글자가 포함되어 있으면 상호 무관하게 자동 연동)
+        const financeKeywordMap = [
+            { keyword: "IT", code: "139260" },              
+            { keyword: "KODEXIT", code: "266370" },         
+            { keyword: "빅테크", code: "465580" },           
+            { keyword: "양자", code: "498270" },             
+            { keyword: "전력", code: "487240" }              
+        ];
 
         let sheetHeaders = [];       
         let dateLabels = [];     
@@ -191,7 +192,19 @@
             const naverLink = document.getElementById('naver-finance-link');
             const googleLink = document.getElementById('google-finance-link');
             
-            let targetCode = naverCodeMap[compareName] || null;
+            let targetCode = null;
+            
+            if (compareName.includes("KODEXIT")) {
+                targetCode = "266370";
+            } else {
+                for (const item of financeKeywordMap) {
+                    if (compareName.includes(item.keyword.toUpperCase())) {
+                        targetCode = item.code;
+                        break;
+                    }
+                }
+            }
+            
             if (targetCode) {
                 naverLink.href = "https://finance.naver.com/item/main.naver?code=" + targetCode;
                 googleLink.href = "https://www.google.com/finance/beta/quote/" + targetCode + ":KRX";
@@ -202,7 +215,6 @@
 
             const currentArray = ColumnDataMaps[index];
             
-            // 1. 기준일(첫 번째 유효 데이터) 찾기
             let firstValidIdx = -1;
             for (let k = 0; k < currentArray.length; k++) {
                 if (currentArray[k] !== null && !isNaN(currentArray[k])) {
@@ -211,7 +223,6 @@
                 }
             }
 
-            // 2. 최신 데이터(값이 있는 가장 마지막 위치) 찾기
             let latestValidIdx = -1;
             for (let k = currentArray.length - 1; k >= 0; k--) {
                 if (currentArray[k] !== null && !isNaN(currentArray[k])) {
@@ -229,12 +240,10 @@
                 return;
             }
 
-            // 상단 우측 날짜 배지를 실제 데이터가 존재하는 최신 날짜로 매핑
             document.getElementById('current-date').innerText = dateLabels[latestValidIdx];
 
             const latestVal = currentArray[latestValidIdx];
             
-            // 3. 전일 데이터(최신 유효 데이터 바로 직전의 유효 데이터) 찾기
             let prevVal = latestVal;
             for (let k = latestValidIdx - 1; k >= firstValidIdx; k--) {
                 if (currentArray[k] !== null && !isNaN(currentArray[k])) {
@@ -300,7 +309,6 @@
         function renderChart(index, startIndex, endIndex) {
             const ctx = document.getElementById('trendChart').getContext('2d');
             
-            // 데이터가 있는 구간만 잘라서 차트에 그리기 (미래의 빈 날짜 제외)
             const filteredLabels = dateLabels.slice(startIndex, endIndex + 1);
             const filteredData = ColumnDataMaps[index].slice(startIndex, endIndex + 1);
             
