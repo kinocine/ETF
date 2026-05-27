@@ -88,8 +88,8 @@
     </div>
 
     <script>
+        // 메인 시트 주소 하나로 통합하여 연동합니다.
         const mainSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1226081751&single=true&output=csv";
-        const noteSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=1858564295&single=true&output=csv";
 
         const financeKeywordMap = [
             { keyword: "IT", code: "139230" },              
@@ -103,7 +103,7 @@
         let sheetHeaders = [];       
         let dateLabels = [];     
         let ColumnDataMaps = {}; 
-        let globalNoteDatabase = []; 
+        let globalMemosRow = []; // 2행의 메모 데이터를 담을 공간
         let chartInstance = null; 
 
         function parseCSV(text) {
@@ -142,13 +142,19 @@
                 const parsedRows = parseCSV(csvText);
                 if (parsedRows.length < 2) return;
 
+                // 1행: 종목 이름들 저장
                 sheetHeaders = parsedRows[0];
+                
+                // 사장님 아이디어 반영: 2행을 통째로 메모 내용으로 가져옵니다!
+                globalMemosRow = parsedRows[1] || [];
+
                 for (let j = 1; j < sheetHeaders.length; j++) {
                     ColumnDataMaps[j] = [];
                 }
                 dateLabels = [];
 
-                for (let i = 1; i < parsedRows.length; i++) {
+                // 데이터 숫자는 3행(배열 인덱스 2)부터 시작합니다.
+                for (let i = 2; i < parsedRows.length; i++) {
                     const columns = parsedRows[i];
                     if (!columns[0]) continue; 
 
@@ -167,61 +173,9 @@
                 renderTabs();
                 switchTab(1); 
 
-                fetchNoteData();
-
             } catch (error) {
                 console.error("자산 로드 오류:", error);
                 document.getElementById('current-date').innerText = "로드 실패";
-            }
-        }
-
-        async function fetchNoteData() {
-            try {
-                const response = await fetch(noteSheetUrl);
-                if (!response.ok) throw new Error("노트 응답 오류");
-                const csvText = await response.text();
-                
-                const parsedNoteRows = parseCSV(csvText);
-                globalNoteDatabase = [];
-
-                for (let i = 1; i < parsedNoteRows.length; i++) {
-                    const columns = parsedNoteRows[i];
-                    if (columns.length < 2) continue;
-
-                    let memoDate = "";
-                    let memoContent = "";
-                    
-                    if (columns.length === 2) {
-                        memoContent = columns[1];
-                    } else {
-                        memoDate = columns[1];
-                        memoContent = columns[2];
-                    }
-
-                    globalNoteDatabase.push({
-                        code: columns[0].replace(/[^0-9]/g, ""), 
-                        date: memoDate,
-                        content: memoContent
-                    });
-                }
-                
-                const activeTabIdx = parseFloat(document.querySelector('[id^="tab-btn-"].bg-indigo-600')?.id.replace('tab-btn-', '') || 1);
-                const rawTabName = sheetHeaders[activeTabIdx] ? sheetHeaders[activeTabIdx].trim() : "";
-                const compareName = rawTabName.replace(/\s+/g, "").toUpperCase();
-                
-                let targetCode = null;
-                if (compareName.includes("KODEXIT")) {
-                    targetCode = "266370";
-                } else {
-                    for (const item of financeKeywordMap) {
-                        if (compareName.includes(item.keyword.toUpperCase())) { targetCode = item.code; break; }
-                    }
-                }
-                updateNoteSection(targetCode);
-
-            } catch (error) {
-                console.error("노트 처리 오류:", error);
-                document.getElementById('note-content-area').innerHTML = `<span class="text-slate-400 italic">노트를 불러오지 못했습니다.</span>`;
             }
         }
 
@@ -333,36 +287,20 @@
                 linksBox.className = "hidden gap-2";
             }
 
-            updateNoteSection(targetCode);
-        }
-
-        function updateNoteSection(targetCode) {
+            // 시트의 해당 열 인덱스(index)의 2행 메모를 직접 가져와 보여줍니다.
             const noteArea = document.getElementById('note-content-area');
-            if (!noteArea) return;
-            
-            noteArea.innerHTML = "";
-            if (!targetCode) {
-                noteArea.innerHTML = `<span class="text-slate-400 italic">해당 종목에 등록된 투자 노트가 없습니다.</span>`;
-                return;
-            }
+            if (noteArea) {
+                noteArea.innerHTML = "";
+                const currentMemo = globalMemosRow[index] ? globalMemosRow[index].trim() : "";
 
-            const matchedNotes = globalNoteDatabase.filter(note => note.code === targetCode);
-
-            if (matchedNotes.length > 0) {
-                matchedNotes.forEach(note => {
+                if (currentMemo && currentMemo !== "") {
                     const memoRow = document.createElement('div');
-                    memoRow.className = "flex flex-col space-y-0.5 border-b border-amber-200/50 pb-2 last:border-0 last:pb-0";
-                    
-                    const dateHtml = note.date ? `<span class="text-[10px] font-bold text-amber-700/80"><i class="fa-regular fa-calendar-check mr-1"></i>${note.date}</span>` : "";
-                    
-                    memoRow.innerHTML = `
-                        ${dateHtml}
-                        <p class="text-amber-900 font-medium">${note.content}</p>
-                    `;
+                    memoRow.className = "flex flex-col space-y-0.5 pb-2";
+                    memoRow.innerHTML = `<p class="text-amber-900 font-medium">${currentMemo}</p>`;
                     noteArea.appendChild(memoRow);
-                });
-            } else {
-                noteArea.innerHTML = `<span class="text-slate-400 italic">해당 종목에 등록된 투자 노트가 없습니다.</span>`;
+                } else {
+                    noteArea.innerHTML = `<span class="text-slate-400 italic">해당 종목에 등록된 투자 노트가 없습니다.</span>`;
+                }
             }
         }
 
