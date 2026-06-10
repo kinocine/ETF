@@ -6,38 +6,24 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Malgun Gothic', sans-serif; }
     body { background-color: #f4f6f9; color: #333; padding: 15px; max-width: 500px; margin: 0 auto; }
-    
-    /* 페이지 전환 스타일 */
     .page { display: none; animation: fadeIn 0.3s ease-in-out; }
     .page.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* 대시보드 카드 스타일 */
     .card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     .main-title { font-size: 20px; font-weight: bold; text-align: center; color: #1e3a8a; margin-bottom: 5px; }
     .sub-title { font-size: 11px; text-align: center; color: #666; margin-bottom: 20px; }
-    
     .total-amount { font-size: 28px; font-weight: bold; color: #111827; margin-top: 5px; }
     .up-color { color: #dc2626; } .down-color { color: #2563eb; }
-    
-    /* 시장 지수 위젯 */
     .market-index { display: flex; gap: 10px; margin-bottom: 15px; }
     .index-box { flex: 1; background: #edf2f7; padding: 10px; border-radius: 10px; text-align: center; font-size: 13px; font-weight: bold; }
-
-    /* 종목 리스트 */
-    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #fff; border-radius: 12px; margin-bottom: 10px; border: 1px solid #e5e7eb; cursor: pointer; transition: 0.2s; }
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #fff; border-radius: 12px; margin-bottom: 10px; border: 1px solid #e5e7eb; cursor: pointer; }
     .list-item:active { background: #f3f4f6; }
     .item-name { font-weight: bold; font-size: 14px; }
     .item-val { text-align: right; font-size: 14px; font-weight: bold; }
-    .item-change { font-size: 11px; margin-top: 2px; }
-
-    /* 개별 종목 페이지 전용 */
     .back-btn { background: none; border: none; color: #1e3a8a; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 15px; display: flex; align-items: center; gap: 5px; }
     .danger-zone { background: #d32f2f; color: white; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
     .danger-zone .title { font-size: 12px; opacity: 0.9; }
     .danger-zone .val { font-size: 26px; font-weight: bold; margin-top: 5px; }
-
-    /* 매도 완료 땡처리 리스트 */
     .sold-title { font-size: 15px; font-weight: bold; margin: 20px 0 10px 5px; color: #4b5563; display: flex; align-items: center; gap: 6px; }
     .sold-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; font-size: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
     .sold-table th { background: #e5e7eb; padding: 10px; font-weight: bold; text-align: left; }
@@ -47,7 +33,7 @@
 <body>
 
   <div id="main-page" class="page active">
-    <div class="main-title">대시보드</div>
+    <div class="main-title">Kinocine 투자 자산 대시보드</div>
     <div class="sub-title">실시간 매수 원가 대비 수익률 추적 시스템</div>
 
     <div class="card">
@@ -56,13 +42,12 @@
     </div>
 
     <div class="market-index">
-      <div class="index-box">코스피 <span id="kospi-val" class="up-color">-</span></div>
-      <div class="index-box">코스닥 <span id="kosdaq-val" class="down-color">-</span></div>
+      <div class="index-box">코스피: <span id="kospi-val">-</span></div>
+      <div class="index-box">코스닥: <span id="kosdaq-val">-</span></div>
     </div>
 
     <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #4b5563;">보유 종목 현황 (클릭 시 상세조회)</div>
-    <div id="stock-list">
-      </div>
+    <div id="stock-list"></div>
 
     <div class="sold-title"><i class="fa-solid fa-box-archive"></i> 이전 매도 청산 리스트 (땡처리 내역)</div>
     <table class="sold-table">
@@ -74,111 +59,82 @@
           <th>청산일</th>
         </tr>
       </thead>
-      <tbody id="sold-list-body">
-        </tbody>
+      <tbody id="sold-list-body"></tbody>
     </table>
   </div>
 
-
   <div id="detail-page" class="page">
     <button class="back-btn" onclick="goBack()"><i class="fa-solid fa-arrow-left"></i> 메인 대시보드로 돌아가기</button>
-    
     <div class="card" style="background: #f8fafc;">
       <div id="det-sheet-title" style="font-size: 13px; color: #666; font-weight: bold;">-</div>
       <div class="total-amount" id="det-current-val">0 KRW</div>
       <div id="det-change-val" style="font-size: 13px; margin-top: 5px;">-</div>
     </div>
-
     <div class="danger-zone" id="det-zone-bg">
       <div class="title">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
       <div class="val" id="det-diff-val">0 (-0.00%)</div>
     </div>
-    
-    <div class="card" style="text-align: center; color: #888; font-size: 13px;">
-      <i class="fa-solid fa-chart-line"></i> 해당 종목의 상세 내역 정보 창입니다.
-    </div>
   </div>
 
   <script>
-    // 전역 데이터 저장소
     let globalItems = [];
-
-    // 페이지 시작 시 구글 데이터 로드
     window.onload = function() {
       google.script.run.withSuccessHandler(renderDashboard).getDashboardData();
     };
 
     function renderDashboard(data) {
-      // 1. 메인 자산 및 지수 매핑
       document.getElementById('total-asset-val').innerText = data.totalAsset + " KRW";
       document.getElementById('kospi-val').innerText = data.kospi;
       document.getElementById('kosdaq-val').innerText = data.kosdaq;
-      
       globalItems = data.items;
 
-      // 2. 보유 종목 리스트 렌더링
       const listContainer = document.getElementById('stock-list');
       listContainer.innerHTML = '';
-      
       data.items.forEach(item => {
         const colorClass = item.isUp ? 'up-color' : 'down-color';
         const icon = item.isUp ? '▲' : '▼';
-        
-        const itemHtml = `
+        listContainer.insertAdjacentHTML('beforeend', `
           <div class="list-item" onclick="openDetail('${item.id}')">
-            <div>
-              <div class="item-name">${item.name}</div>
-            </div>
+            <div class="item-name">${item.name}</div>
             <div class="item-val">
               <div>${item.value} 원</div>
-              <div class="item-change ${colorClass}">${icon} ${item.change.split(' ')[0]}</div>
+              <div style="font-size:11px;" class="${colorClass}">${icon} ${item.change.split(' ')[0]}</div>
             </div>
           </div>
-        `;
-        listContainer.insertAdjacentHTML('beforeend', itemHtml);
-      });
-
-      // 3. 복구된 매도 청산 리스트 렌더링
-      const soldContainer = document.getElementById('sold-list-body');
-      soldContainer.innerHTML = '';
-      data.soldData.forEach(s => {
-        const sColor = s.profit >= 0 ? 'up-color' : 'down-color';
-        soldContainer.insertAdjacentHTML('beforeend', `
-          <tr>
-            <td style="font-weight:bold;">${s.name}</td>
-            <td class="${sColor}">${s.profit.toLocaleString()}원</td>
-            <td class="${sColor}">${s.rate}%</td>
-            <td style="color:#888;">${s.date}</td>
-          </tr>
         `);
       });
+
+      const soldContainer = document.getElementById('sold-list-body');
+      soldContainer.innerHTML = '';
+      if(data.soldData.length === 0) {
+        soldContainer.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">이전 매도 내역이 없습니다.</td></tr>';
+      } else {
+        data.soldData.forEach(s => {
+          const sColor = s.profit >= 0 ? 'up-color' : 'down-color';
+          soldContainer.insertAdjacentHTML('beforeend', `
+            <tr>
+              <td style="font-weight:bold;">${s.name}</td>
+              <td class="${sColor}">${s.profit.toLocaleString()}원</td>
+              <td class="${sColor}">${s.rate}%</td>
+              <td style="color:#888;">${s.date}</td>
+            </tr>
+          `);
+        });
+      }
     }
 
-    // 개별 페이지 열기
     function openDetail(id) {
       const item = globalItems.find(i => i.id === id);
       if(!item) return;
-
       document.getElementById('det-sheet-title').innerText = item.name + " 현황";
       document.getElementById('det-current-val').innerText = item.value + " KRW";
       document.getElementById('det-change-val').innerText = "전일 대비 변동: " + item.change;
       document.getElementById('det-diff-val').innerText = item.diff;
-      
-      // 색상 테마 매칭 (상승세면 빨간색 계열, 하락세면 파란색 계열 카드 피드백)
-      const zoneBg = document.getElementById('det-zone-bg');
-      if(item.isUp) {
-        document.getElementById('det-change-val').className = "up-color";
-      } else {
-        document.getElementById('det-change-val').className = "down-color";
-      }
-
-      // 화면 전환
       document.getElementById('main-page').classList.remove('active');
       document.getElementById('detail-page').classList.add('active');
       window.scrollTo(0,0);
     }
 
-    // 메인으로 돌아가기
     function goBack() {
       document.getElementById('detail-page').classList.remove('active');
       document.getElementById('main-page').classList.add('active');
