@@ -11,9 +11,9 @@
             --card-bg: #ffffff;
             --text-main: #2c3e50;
             --text-muted: #7f8c8d;
-            --accent-color: #1abc9c; /* 시트 테마와 어울리는 에메랄드 민트 */
+            --accent-color: #1abc9c; /* 에메랄드 민트 */
             --accent-hover: #16a085;
-            --plus-color: #e74c3c; /* 수익 발생 시 붉은색 (한국 기준) */
+            --plus-color: #e74c3c; /* 수익 발생 시 붉은색 */
             --minus-color: #2980b9; /* 손실 발생 시 파란색 */
             --border-color: #e2e8f0;
         }
@@ -175,25 +175,22 @@
 </div>
 
 <script>
-    // ⚠️ [필수 설정] 구글 스프레드시트의 [웹에 게시 -> CSV] 주소를 아래 파일 URL에 넣으세요.
-    // 주소가 비어있으면 시스템에 내장된 이미지 기반 더미 데이터로 데모 작동합니다.
+    // ⚠️ 구글 스프레드시트의 [웹에 게시 -> CSV] 주소를 아래에 넣으세요.
     const SPREADSHEET_CSV_URL = ""; 
 
     let globalRawRows = [];
     let parsedTabs = [];
     let currentChart = null;
 
-    // 초기 구동 로직
     window.addEventListener('DOMContentLoaded', () => {
         if (SPREADSHEET_CSV_URL && SPREADSHEET_CSV_URL.startsWith("http")) {
             fetchCSVData(SPREADSHEET_CSV_URL);
         } else {
-            console.log("구글 시트 URL이 없어 스크린샷 기반 더미 데이터로 데모를 구동합니다.");
+            console.log("구글 시트 URL이 없어 기본 내장 데이터로 데모를 구동합니다.");
             loadDummyData();
         }
     });
 
-    // 구글 시트에서 CSV 긁어오기
     function fetchCSVData(url) {
         fetch(url)
             .then(response => response.text())
@@ -206,37 +203,54 @@
             });
     }
 
-    // CSV 텍스트 파싱 처리
+    // 따옴표 내부의 콤마를 안전하게 보호하면서 분할하는 고급 CSV 파서
+    function parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+                inQuotes = !inQuotes; // 따옴표 구간 진입 또는 탈출
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current.trim());
+        return result.map(cell => cell.replace(/^"|"$/g, '').trim());
+    }
+
     function processRawText(text) {
         const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-        globalRawRows = lines.map(line => {
-            // 따옴표 내부 컴마 무시 규칙 적용 분할
-            return line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.replace(/^"|"$/g, '').trim());
-        });
+        
+        // 정규식 매칭 방식 대신 문자열 순회 파서로 교체하여 "1,091,090" 같은 데이터 완벽 방어
+        globalRawRows = lines.map(line => parseCSVLine(line));
 
         if (globalRawRows.length === 0) return;
 
         buildTabsAndRender();
     }
 
-    // 1행 분석하여 동적 탭 구성 (종목명 -> 원가 쌍 배치 규칙 적용)
     function buildTabsAndRender() {
         const headers = globalRawRows[0];
         parsedTabs = [];
 
-        // C열(인덱스 2)부터 2칸씩 뛰며 종목 헤더 추출
+        // C열(인덱스 2)부터 2칸씩 이동하며 대시보드 탭 생성
         for (let i = 2; i < headers.length; i += 2) {
             const label = headers[i];
             if (label && !['원가', 'ETF', '날짜'].includes(label)) {
                 parsedTabs.push({
                     name: label,
-                    valIdx: i,       // 종목 평가금 열
-                    costIdx: i + 1   // 바로 우측 원가 열
+                    valIdx: i,       // 평가금 열 인덱스
+                    costIdx: i + 1   // 원가 열 인덱스
                 });
             }
         }
 
-        // 탭 UI 그리기
         const tabsBox = document.getElementById('tabsBox');
         tabsBox.innerHTML = '';
 
@@ -248,56 +262,50 @@
             tabsBox.appendChild(btn);
         });
 
-        // 첫 번째 탭 데이터 기본 활성화
         if (parsedTabs.length > 0) {
             renderDashboard(parsedTabs[0]);
         }
     }
 
-    // 탭 전환 이벤트
     function switchTab(index, targetBtn) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         targetBtn.classList.add('active');
         renderDashboard(parsedTabs[index]);
     }
 
-    // 핵심 로직: 선택된 종목의 데이터 정제 및 계산 화면 렌더링
     function renderDashboard(tab) {
         const labels = [];
         const evalValues = [];
         const costValues = [];
         
-        let lastValidCost = 0;   // 빈 칸일 때 거슬러 올라가기 위한 원가 저장소
-        let lastValidValue = 0;  // 빈 칸일 때 거슬러 올라가기 위한 평가금 저장소
-        let isStarted = false;   // 투자가 시작된 날짜부터 차트에 그리기 위함
+        let lastValidCost = 0;   
+        let lastValidValue = 0;  
+        let isStarted = false;   
 
-        // 2행(메모행) 건너뛰고 3행(인덱스 2)부터 순회
+        // 데이터 행 순회 분석 (데이터 누적 구조 정상화)
         for (let i = 1; i < globalRawRows.length; i++) {
             const row = globalRawRows[i];
             const dateStr = row[0];
 
-            // 날짜 칸이 비어있거나 메모 형식(월 단위 매핑이 안되는 행) 필터링
-            if (!dateStr || !dateStr.includes('월')) continue;
+            if (!dateStr || (!dateStr.includes('월') && !dateStr.includes('.'))) continue;
 
-            // 현재 평가금 및 원가 파싱 (컴마 제거)
-            const rawVal = row[tab.valIdx] ? parseFloat(row[tab.valIdx].replace(/,/g, '')) : NaN;
-            const rawCost = row[tab.costIdx] ? parseFloat(row[tab.costIdx].replace(/,/g, '')) : NaN;
+            // 값 파싱 전 내부의 모든 콤마 및 공백 완벽 제거
+            const cleanVal = row[tab.valIdx] ? row[tab.valIdx].replace(/,/g, '').replace(/\s/g, '') : '';
+            const cleanCost = row[tab.costIdx] ? row[tab.costIdx].replace(/,/g, '').replace(/\s/g, '') : '';
 
-            // 평가금 처리
-            let currentVal = isNaN(rawVal) ? lastValidValue : rawVal;
-            // 원가 처리 (★빈 칸인 경우 직전 입력된 원가 데이터를 누적 추적)
-            let currentCost = isNaN(rawCost) ? lastValidCost : rawCost;
+            const rawVal = cleanVal ? parseFloat(cleanVal) : NaN;
+            const rawCost = cleanCost ? parseFloat(cleanCost) : NaN;
 
-            // 값 캐싱 업데이트
             if (!isNaN(rawVal)) lastValidValue = rawVal;
             if (!isNaN(rawCost)) lastValidCost = rawCost;
 
-            // 해당 종목의 투자가 실제로 시작된 시점 감지
+            let currentVal = isNaN(rawVal) ? lastValidValue : rawVal;
+            let currentCost = isNaN(rawCost) ? lastValidCost : rawCost;
+
             if (currentCost > 0 || currentVal > 0) {
                 isStarted = true;
             }
 
-            // 투자가 시작 안 된 과거 시점은 데이터 수집에서 제외
             if (!isStarted) continue;
 
             labels.push(dateStr);
@@ -305,7 +313,7 @@
             costValues.push(currentCost);
         }
 
-        // 최신(마지막 날짜) 데이터 요약 계산
+        // 최신 데이터 카드 UI 반영 반영
         const lastIdx = evalValues.length - 1;
         if (lastIdx >= 0) {
             const latestVal = evalValues[lastIdx];
@@ -313,12 +321,11 @@
             const diff = latestVal - latestCost;
             const rate = latestCost > 0 ? (diff / latestCost) * 100 : 0;
 
-            // 카드 UI 데이터 바인딩
-            document.getElementById('curValue').innerText = latestVal.toLocaleString() + ' 원';
-            document.getElementById('curCost').innerText = latestCost.toLocaleString() + ' 원';
+            document.getElementById('curValue').innerText = Math.round(latestVal).toLocaleString() + ' 원';
+            document.getElementById('curCost').innerText = Math.round(latestCost).toLocaleString() + ' 원';
             
             const diffEl = document.getElementById('curDiff');
-            diffEl.innerText = (diff >= 0 ? '+' : '') + diff.toLocaleString() + ' 원';
+            diffEl.innerText = (diff >= 0 ? '+' : '') + Math.round(diff).toLocaleString() + ' 원';
             diffEl.className = `value ${diff >= 0 ? 'plus' : 'minus'}`;
 
             const rateEl = document.getElementById('curRate');
@@ -326,16 +333,14 @@
             rateEl.className = `value ${rate >= 0 ? 'plus' : 'minus'}`;
         }
 
-        // 차트 재생성
         drawChart(labels, evalValues, costValues, tab.name);
     }
 
-    // Chart.js 시각화 구현
     function drawChart(labels, evalData, costData, stockName) {
         const ctx = document.getElementById('assetChart').getContext('2d');
         
         if (currentChart) {
-            currentChart.destroy(); // 기존 차트 파괴 후 재생성 (잔상 오류 방지)
+            currentChart.destroy(); 
         }
 
         currentChart = new Chart(ctx, {
@@ -359,7 +364,7 @@
                         data: costData,
                         borderColor: '#7f8c8d',
                         borderWidth: 2,
-                        borderDash: [5, 5], // 원가는 변동 시점을 파악하기 좋게 점선 처리
+                        borderDash: [5, 5], 
                         pointRadius: 2,
                         fill: false,
                         tension: 0
@@ -382,7 +387,7 @@
                                 let label = context.dataset.label || '';
                                 if (label) label += ': ';
                                 if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toLocaleString() + '원';
+                                    label += Math.round(context.parsed.y).toLocaleString() + '원';
                                 }
                                 return label;
                             }
@@ -398,7 +403,7 @@
                         grid: { color: '#e2e8f0' },
                         ticks: {
                             font: { size: 11 },
-                            callback: function(value) { return value.toLocaleString() + '원'; }
+                            callback: function(value) { return Math.round(value).toLocaleString() + '원'; }
                         }
                     }
                 }
@@ -406,7 +411,6 @@
         });
     }
 
-    // 사용자가 URL을 넣기 전에 브라우저에서 바로 확인할 수 있는 스크린샷 기반 더미 데모 데이터
     function loadDummyData() {
         const dummyText = `날짜,ETF,타이거200IT,원가,KODEXIT,원가,국빅테크TO,원가,ER미국배당다우,원가,KIWOOM미국,원가,미국우주항공E,원가,KODEXAI전력핵심설비,원가
 ,,5월4일 8좌=953570원,5월12일 13좌=965705원,97140(4좌),,,5월27일 56좌=877960,5월26일 26좌=481950,2026.6.4 매수신청,,5.7? 963850원,,
@@ -421,7 +425,7 @@
 5월27일,,1471770,,1068860,,104320,,,,479440,,,,,,882875
 6월1일,,6591580,6591580,1199510,,106240,,,,483600,,,,,,
 6월2일,,6785450,,1221090,,107360,,865200,,479570,,,,88880,,
-6월5일,,6036800,,1,091,090,,105560,,889280,,499200,,,,90570,,
+6월5일,,6036800,,"1,091,090",,105560,,889280,,499200,,,,90570,,
 6월10일,8779740,6135325,,1115205,,100160,,868560,,474500,,84990,88880,,`;
         
         processRawText(dummyText);
