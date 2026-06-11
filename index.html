@@ -50,7 +50,6 @@
             letter-spacing: -0.5px;
         }
 
-        /* ◀ 종목명 ▶ 내비게이션 컨트롤러 구조 개선 */
         .page-controller {
             display: flex;
             align-items: center;
@@ -96,7 +95,6 @@
             text-overflow: ellipsis;
         }
 
-        /* 대시보드 카드 레이아웃 */
         .dashboard-grid {
             display: flex;
             flex-direction: column;
@@ -104,7 +102,6 @@
             margin-bottom: 25px;
         }
 
-        /* 기본 카드 디자인 */
         .card {
             background-color: var(--card-bg);
             border-radius: 16px;
@@ -150,7 +147,6 @@
         .card.status-minus .value { color: var(--minus-text); }
         .card.status-minus .sub-value { color: rgba(255, 255, 255, 0.9); }
 
-        /* 차트 영역 */
         .chart-container {
             background-color: var(--card-bg);
             border-radius: 16px;
@@ -305,21 +301,15 @@
         const evalValues = [];
         const costValues = [];
         
-        let lastValidCost = 0;   
         let lastValidValue = 0;  
+        let accumulatedCost = 0; // 원가를 누적해서 더해갈 변수
         let isStarted = false;   
-        let baseDateStr = "5월 1일"; // 기본 기준일 디폴트값
+        let lastCostDateStr = ""; // 실제 원가가 입력된 최종 날짜를 담을 변수
 
-        // 행 우선 탐색을 통해 최근 입력일 및 매수 신청 기준일 추적
+        // 행 우선 탐색
         for (let i = 1; i < globalRawRows.length; i++) {
             const row = globalRawRows[i];
             const dateStr = row[0];
-
-            // 1행 근처 정보 가독 영역에서 기준일 속성 가져오기 파싱 알고리즘 최적화
-            if (i === 1 && row[stock.valIdx]) {
-                const match = row[stock.valIdx].match(/(\d+월\s?\d+일|\d+\.\d+\.\d+)/);
-                if (match) baseDateStr = match[1];
-            }
 
             if (!dateStr || (!dateStr.includes('월') && !dateStr.includes('.'))) continue;
 
@@ -330,12 +320,17 @@
             const rawCost = cleanCost ? parseFloat(cleanCost) : NaN;
 
             if (!isNaN(rawVal)) lastValidValue = rawVal;
-            if (!isNaN(rawCost)) lastValidCost = rawCost;
+            
+            // 핵심 수정: 원가 열에 데이터가 있으면 누적 합산하고 해당 날짜를 기록
+            if (!isNaN(rawCost) && rawCost > 0) {
+                accumulatedCost += rawCost;
+                // '6월1일' -> '6/1' 형태로 보기 좋게 변환
+                lastCostDateStr = dateStr.replace('월', '/').replace('일', '').replace(/\s/g, '');
+            }
 
             let currentVal = isNaN(rawVal) ? lastValidValue : rawVal;
-            let currentCost = isNaN(rawCost) ? lastValidCost : rawCost;
 
-            if (currentCost > 0 || currentVal > 0) {
+            if (accumulatedCost > 0 || currentVal > 0) {
                 isStarted = true;
             }
 
@@ -343,15 +338,15 @@
 
             labels.push(dateStr);
             evalValues.push(currentVal);
-            costValues.push(currentCost);
+            costValues.push(accumulatedCost); // 차트에도 누적 원가 반영
         }
 
         const lastIdx = evalValues.length - 1;
         if (lastIdx >= 0) {
             const latestVal = evalValues[lastIdx];
-            const latestCost = costValues[lastIdx];
+            const latestCost = costValues[lastIdx]; // 최종 누적 투자총액
             
-            // 전일 대비 데이터 변동 계산 (마지막 이전 데이터와 비교)
+            // 전일 대비 데이터 변동 계산
             let dayDiff = 0;
             let dayRate = 0;
             if (lastIdx > 0) {
@@ -370,8 +365,8 @@
             const dayChangeEl = document.getElementById('dayChange');
             dayChangeEl.innerText = `전일 대비 변동: ${dayDiff >= 0 ? '+' : ''}${Math.round(dayDiff).toLocaleString()} (${dayDiff >= 0 ? '+' : ''}${dayRate.toFixed(2)}%)`;
 
-            // 2. 투자총액 대비 증감 카드 업데이트 및 배경색 제어
-            document.getElementById('diffTitle').innerText = `투자총액 대비 (원가 최근 수치 입력일: ${baseDateStr}) 증감액`;
+            // 2. 투자총액 대비 증감 카드 업데이트 (포맷 커스텀 적용)
+            document.getElementById('diffTitle').innerText = `투자총액 대비 (${lastCostDateStr} ${Math.round(latestCost).toLocaleString()}) 증감액`;
             document.getElementById('curDiff').innerText = `${diff >= 0 ? '+' : ''}${Math.round(diff).toLocaleString()}`;
             document.getElementById('curRate').innerText = `(${diff >= 0 ? '+' : ''}${rate.toFixed(2)}%)`;
 
@@ -380,7 +375,7 @@
 
             // 흑자/적자에 따른 디자인 분기 적용
             if (diff >= 0) {
-                evalCard.className = "card"; // 평가 현황은 기본 흰색 유지
+                evalCard.className = "card"; 
                 diffCard.className = "card status-plus"; // 흑자: 라이트 골드 박스
             } else {
                 evalCard.className = "card"; 
@@ -446,6 +441,7 @@
     }
 
     function loadDummyData() {
+        // 6월 11일 행 데이터 누락 방지 및 완벽 매칭 데이터 반영
         const dummyText = `날짜,ETF,타이거200IT,원가,KODEXIT,원가,국빅테크TO,원가,ER미국배당다우,원가,KIWOOM미국,원가,미국우주항공E,원가,KODEXAI전력핵심설비,원가
 ,,5월4일 8좌=953570원,5월12일 13좌=965705원,97140(4좌),,,5월27일 56좌=877960,5월26일 26좌=481950,2026.6.4 매수신청,,5.7? 963850원,,
 4월1일,,,,,,,,,,,,,,
@@ -460,7 +456,8 @@
 6월1일,,6591580,6591580,1199510,,106240,,,,483600,,,,,,
 6월2일,,6785450,,1221090,,107360,,865200,,479570,,,,88880,,
 6월5일,,6036800,,"1,091,090",,105560,,889280,,499200,,,,90570,,
-6월10일,8779740,6135325,,1115205,,100160,,868560,,474500,,84990,88880,,`;
+6월10일,8779740,6135325,,1115205,,100160,,868560,,474500,,84990,88880,,
+6월11일,8237705,5692925,,1047150,,,,,,,,,,,,`;
         
         processRawText(dummyText);
     }
