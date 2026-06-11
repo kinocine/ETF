@@ -18,6 +18,9 @@
             --plus-text: #854d0e;    /* 흑자: 다크 골드 텍스트 */
             --minus-bg: #dc2626;     /* 적자: 레드 박스 배경 */
             --minus-text: #ffffff;   /* 적자: 흰색 텍스트 */
+            --note-bg: #fffde7;      /* 투자 노트 배경 */
+            --note-border: #fef08a;  /* 투자 노트 테두리 */
+            --history-bg: #f1f5f9;   /* 과거 투자 종목 배경 */
         }
 
         * {
@@ -147,6 +150,32 @@
         .card.status-minus .value { color: var(--minus-text); }
         .card.status-minus .sub-value { color: rgba(255, 255, 255, 0.9); }
 
+        /* 투자 노트 스타일 */
+        .note-card {
+            background-color: var(--note-bg);
+            border: 1px solid var(--note-border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+        }
+        .note-card .note-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #854d0e;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .note-card .note-content {
+            font-size: 14px;
+            color: #713f12;
+            line-height: 1.6;
+            white-space: pre-line; /* 줄바꿈 호환 */
+            font-weight: 500;
+        }
+
         .chart-container {
             background-color: var(--card-bg);
             border-radius: 16px;
@@ -156,6 +185,41 @@
             position: relative;
             height: 350px;
             width: 100%;
+            margin-bottom: 25px;
+        }
+
+        /* 과거 투자 종목 보관함 스타일 */
+        .history-card {
+            background-color: var(--history-bg);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+        }
+        .history-card .history-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #475569;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .history-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .tag {
+            background-color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .loading {
@@ -193,8 +257,20 @@
         </div>
     </div>
 
+    <div class="note-card">
+        <div class="note-title">📦 투자 노트 (NOTE)</div>
+        <div class="note-content" id="noteContent">해당 종목에 등록된 투자 노트가 없습니다.</div>
+    </div>
+
     <div class="chart-container">
         <canvas id="assetChart"></canvas>
+    </div>
+
+    <div class="history-card">
+        <div class="history-title">🗑️ 과거 투자 종목 (보관함)</div>
+        <div class="history-tags" id="historyTags">
+            <span style="color:#94a3b8; font-size:13px;">과거 보유 종목이 없습니다.</span>
+        </div>
     </div>
 </div>
 
@@ -203,7 +279,8 @@
     const SPREADSHEET_CSV_URL = ""; 
 
     let globalRawRows = [];
-    let parsedStocks = [];
+    let activeStocks = [];   // 현재 운용중인 종목 (잔고 > 0)
+    let pastStocks = [];     // 전량 매도된 종목 (잔고 = 0 혹은 누락)
     let currentPageIndex = 0;
     let currentChart = null;
 
@@ -211,7 +288,7 @@
         if (SPREADSHEET_CSV_URL && SPREADSHEET_CSV_URL.startsWith("http")) {
             fetchCSVData(SPREADSHEET_CSV_URL);
         } else {
-            console.log("구글 시트 URL이 없어 기본 내장 데이터로 데모를 구동합니다.");
+            console.log("구글 시트 URL이 없어 기본 내장 데이터로 최신 시뮬레이션을 구동합니다.");
             loadDummyData();
         }
     });
@@ -254,44 +331,99 @@
 
         if (globalRawRows.length === 0) return;
 
-        buildStockPages();
+        buildStockCategorization();
     }
 
-    function buildStockPages() {
+    // 💡 핵심 수정: 유연한 헤더 매칭 알고리즘 및 현재/과거 종목 자동 분류 로직
+    function buildStockCategorization() {
         const headers = globalRawRows[0];
-        parsedStocks = [];
+        const noteRow = globalRawRows[1] || []; // 2행 (투자 노트 소스)
+        
+        activeStocks = [];
+        pastStocks = [];
 
-        for (let i = 2; i < headers.length; i += 2) {
+        // 1행을 스캔하면서 종목과 우측 BUY의 위치를 동적으로 파악
+        for (let i = 0; i < headers.length; i++) {
             const label = headers[i];
-            if (label && !['원가', 'ETF', '날짜'].includes(label)) {
-                parsedStocks.push({
+            
+            // 고정 필드가 아니고 값이 비어있지 않으며 'BUY'가 아닌 것 = 종목명 발견!
+            if (label && !['날짜', 'ETF', 'BUY'].includes(label)) {
+                
+                // 유연성 확보: 바로 오른쪽 열이 BUY 헤더인지 명확하게 검증
+                let buyIdx = -1;
+                if (i + 1 < headers.length && headers[i + 1] === 'BUY') {
+                    buyIdx = i + 1;
+                }
+
+                // 해당 종목의 최신 날짜(가장 아래 행) 잔고 추적
+                let lastValidValue = 0;
+                for (let r = 2; r < globalRawRows.length; r++) {
+                    const rData = globalRawRows[r];
+                    const cleanVal = rData[i] ? rData[i].replace(/,/g, '').replace(/\s/g, '') : '';
+                    if (cleanVal && !isNaN(parseFloat(cleanVal))) {
+                        lastValidValue = parseFloat(cleanVal);
+                    }
+                }
+
+                // 2행 메모 내용 추출 (투자노트)
+                const rawNote = noteRow[i] ? noteRow[i] : '';
+
+                const stockObj = {
                     name: label,
-                    valIdx: i,       
-                    costIdx: i + 1   
-                });
+                    valIdx: i,
+                    buyIdx: buyIdx,
+                    note: rawNote || "등록된 투자 노트가 없습니다."
+                };
+
+                // 잔고가 0보다 크면 활성 종목, 그렇지 않으면 과거 종목(보관함)으로 직관적 분류
+                if (lastValidValue > 0) {
+                    activeStocks.push(stockObj);
+                } else {
+                    pastStocks.push(stockObj);
+                }
             }
         }
 
-        if (parsedStocks.length > 0) {
+        // 과거 종목 하단 칩 UI 렌더링
+        renderPastStocksUI();
+
+        if (activeStocks.length > 0) {
             currentPageIndex = 0;
             updateDashboardPage();
+        } else {
+            document.getElementById('stockTitle').innerText = "활성 종목 없음";
         }
+    }
+
+    function renderPastStocksUI() {
+        const historyContainer = document.getElementById('historyTags');
+        if (pastStocks.length === 0) {
+            historyContainer.innerHTML = `<span style="color:#94a3b8; font-size:13px;">과거 보유 종목이 없습니다.</span>`;
+            return;
+        }
+
+        historyContainer.innerHTML = pastStocks.map(stock => {
+            return `<span class="tag">📦 ${stock.name}</span>`;
+        }).join('');
     }
 
     function movePage(direction) {
         const targetIndex = currentPageIndex + direction;
-        if (targetIndex >= 0 && targetIndex < parsedStocks.length) {
+        if (targetIndex >= 0 && targetIndex < activeStocks.length) {
             currentPageIndex = targetIndex;
             updateDashboardPage();
         }
     }
 
     function updateDashboardPage() {
-        const currentStock = parsedStocks[currentPageIndex];
+        const currentStock = activeStocks[currentPageIndex];
         document.getElementById('stockTitle').innerText = currentStock.name;
 
         document.getElementById('prevBtn').disabled = (currentPageIndex === 0);
-        document.getElementById('nextBtn').disabled = (currentPageIndex === parsedStocks.length - 1);
+        document.getElementById('nextBtn').disabled = (currentPageIndex === activeStocks.length - 1);
+
+        // 투자 노트(2행) 실시간 바인딩 부활
+        document.getElementById('noteContent').innerText = currentStock.note;
 
         renderDashboard(currentStock);
     }
@@ -302,32 +434,32 @@
         const costValues = [];
         
         let lastValidValue = 0;  
-        let accumulatedCost = 0; // 원가를 누적해서 더해갈 변수
+        let accumulatedCost = 0; // [BUY] 열 전체 데이터를 누적 Sum 할 변수
         let isStarted = false;   
-        let lastCostDateStr = ""; // 실제 원가가 입력된 최종 날짜를 담을 변수
+        let lastCostDateStr = "-"; 
 
-        // 행 우선 탐색
-        for (let i = 1; i < globalRawRows.length; i++) {
+        // 3행부터 실 데이터 우선 탐색
+        for (let i = 2; i < globalRawRows.length; i++) {
             const row = globalRawRows[i];
             const dateStr = row[0];
 
             if (!dateStr || (!dateStr.includes('월') && !dateStr.includes('.'))) continue;
 
             const cleanVal = row[stock.valIdx] ? row[stock.valIdx].replace(/,/g, '').replace(/\s/g, '') : '';
-            const cleanCost = row[stock.costIdx] ? row[stock.costIdx].replace(/,/g, '').replace(/\s/g, '') : '';
-
             const rawVal = cleanVal ? parseFloat(cleanVal) : NaN;
-            const rawCost = cleanCost ? parseFloat(cleanCost) : NaN;
 
-            if (!isNaN(rawVal)) lastValidValue = rawVal;
-            
-            // 핵심 수정: 원가 열에 데이터가 있으면 누적 합산하고 해당 날짜를 기록
-            if (!isNaN(rawCost) && rawCost > 0) {
-                accumulatedCost += rawCost;
-                // '6월1일' -> '6/1' 형태로 보기 좋게 변환
-                lastCostDateStr = dateStr.replace('월', '/').replace('일', '').replace(/\s/g, '');
+            // 핵심 수정: 인덱스가 매칭된 [BUY] 열의 실시간 누적 Sum 연산 처리
+            if (stock.buyIdx !== -1) {
+                const cleanBuy = row[stock.buyIdx] ? row[stock.buyIdx].replace(/,/g, '').replace(/\s/g, '') : '';
+                const rawBuy = cleanBuy ? parseFloat(cleanBuy) : NaN;
+                
+                if (!isNaN(rawBuy) && rawBuy > 0) {
+                    accumulatedCost += rawBuy;
+                    lastCostDateStr = dateStr.replace('월', '/').replace('일', '').replace(/\s/g, '');
+                }
             }
 
+            if (!isNaN(rawVal)) lastValidValue = rawVal;
             let currentVal = isNaN(rawVal) ? lastValidValue : rawVal;
 
             if (accumulatedCost > 0 || currentVal > 0) {
@@ -338,13 +470,13 @@
 
             labels.push(dateStr);
             evalValues.push(currentVal);
-            costValues.push(accumulatedCost); // 차트에도 누적 원가 반영
+            costValues.push(accumulatedCost); // 차트 점선 데이터 매칭
         }
 
         const lastIdx = evalValues.length - 1;
         if (lastIdx >= 0) {
             const latestVal = evalValues[lastIdx];
-            const latestCost = costValues[lastIdx]; // 최종 누적 투자총액
+            const latestCost = costValues[lastIdx]; // [BUY] 루프로 더해진 누적 원가 최종본
             
             // 전일 대비 데이터 변동 계산
             let dayDiff = 0;
@@ -365,18 +497,18 @@
             const dayChangeEl = document.getElementById('dayChange');
             dayChangeEl.innerText = `전일 대비 변동: ${dayDiff >= 0 ? '+' : ''}${Math.round(dayDiff).toLocaleString()} (${dayDiff >= 0 ? '+' : ''}${dayRate.toFixed(2)}%)`;
 
-            // 2. 투자총액 대비 증감 카드 업데이트 (포맷 커스텀 적용)
-            document.getElementById('diffTitle').innerText = `투자총액 대비 (${lastCostDateStr} ${Math.round(latestCost).toLocaleString()}) 증감액`;
+            // 2. 투자총액 대비 증감 카드 업데이트 (정밀 계산 포맷)
+            document.getElementById('diffTitle').innerText = `투자총액 대비 (${lastCostDateStr} 매수원가합산 ${Math.round(latestCost).toLocaleString()}) 증감액`;
             document.getElementById('curDiff').innerText = `${diff >= 0 ? '+' : ''}${Math.round(diff).toLocaleString()}`;
             document.getElementById('curRate').innerText = `(${diff >= 0 ? '+' : ''}${rate.toFixed(2)}%)`;
 
             const evalCard = document.getElementById('evalCard');
             const diffCard = document.getElementById('diffCard');
 
-            // 흑자/적자에 따른 디자인 분기 적용
+            // 흑자/적자에 따른 유연한 컨디션 디자인 분기 적용
             if (diff >= 0) {
                 evalCard.className = "card"; 
-                diffCard.className = "card status-plus"; // 흑자: 라이트 골드 박스
+                diffCard.className = "card status-plus"; // 흑자: 라이트 골드
             } else {
                 evalCard.className = "card"; 
                 diffCard.className = "card status-minus"; // 적자: 레드 박스
@@ -409,7 +541,7 @@
                         tension: 0.1
                     },
                     {
-                        label: '누적 매수 원가',
+                        label: '누적 투자금 (BUY 합계)',
                         data: costData,
                         borderColor: '#7f8c8d',
                         borderWidth: 2,
@@ -441,23 +573,40 @@
     }
 
     function loadDummyData() {
-        // 6월 11일 행 데이터 누락 방지 및 완벽 매칭 데이터 반영
-        const dummyText = `날짜,ETF,타이거200IT,원가,KODEXIT,원가,국빅테크TO,원가,ER미국배당다우,원가,KIWOOM미국,원가,미국우주항공E,원가,KODEXAI전력핵심설비,원가
-,,5월4일 8좌=953570원,5월12일 13좌=965705원,97140(4좌),,,5월27일 56좌=877960,5월26일 26좌=481950,2026.6.4 매수신청,,5.7? 963850원,,
-4월1일,,,,,,,,,,,,,,
+        // 요구하신 최신 스프레드시트 포맷 데이터 완벽 탑재 (6월 12일 당일 데이터 포함 완료)
+        const dummyText = `날짜,ETF,타이거200IT,BUY,KODEXIT,BUY,ACE 미국빅테크TOP7Plus,BUY,TIGER미국배당다우존스,BUY,KIWOOM미국양자컴퓨팅,BUY,1Q미국우주항공테크,BUY,KODEXAI전력핵심설비,PLUSK방산
+,,5월4일 119916*8좌=953570원\n6월1일 190563*26좌=4954645원 추가,,"5월12일\n74,285*13좌=965,705",,97140 (4좌),,5월27일 15677*56좌=877960원,,5월26일 18536*26좌=481950,,2026.6.4 매수신청\n14813*6좌=88880,,5.7? 963850 (16좌)\n26.5.26 882875 (16좌\n-80930),2026.5.11 74520 (1좌)\n-2320
+4월1일,,,,,,,,,,,,,,,
 5월4일,,1119015,953570,,,,98180,97140,,,,,,,,
 5월5일,,1119015,,,,,,98000,,,,,,,,
-5월11일,,1123910,,,,,,100880,,,,,,,,
-5월12일,,1293705,,965705,965705,101420,,,,,,,,1006400
-5월20일,,1222830,,890435,,103800,,,,,,,,811360
-5월25일,,1391850,,998855,,105080,,877960,,481950,,,,,881440
-5월26일,,1391850,,998855,,105080,877960,877960,877960,481950,481950,,,,881440
-5월27일,,1471770,,1068860,,104320,,,,479440,,,,,,882875
-6월1일,,6591580,6591580,1199510,,106240,,,,483600,,,,,,
-6월2일,,6785450,,1221090,,107360,,865200,,479570,,,,88880,,
-6월5일,,6036800,,"1,091,090",,105560,,889280,,499200,,,,90570,,
-6월10일,8779740,6135325,,1115205,,100160,,868560,,474500,,84990,88880,,
-6월11일,8237705,5692925,,1047150,,,,,,,,,,,,`;
+5월6일,,1119015,,,,,,98000,,,,,,,,
+5월7일,,1208655,,,,,,97560,,,,,,,,963805,
+5월8일,,1226925,,,,,,99120,,,,,,,,996560,
+5월9일,,1223910,,,,,,100880,,,,,,,,1018960,
+5월10일,,1223910,,,,,,100880,,,,,,,,1018960,
+5월11일,,1223910,,,,,,100880,,,,,,,,1018960,74520
+5월12일,,1293705,,965705,965705,101420,,,,,,,,1006400,
+5월13일,,1289520,,930435,,101840,,,,,,,,961760,
+5월20일,,1222830,,890435,,103800,,,,,,,,811360,
+5월21일,,1222065,,785840,,103140,,,,,,,,894205,
+5월22일,,1368000,,985205,,103908,,,,,,,,868160,
+5월23일,,1391850,,998855,,105080,,,,,,,,881440,
+5월24일,,1391850,,998855,,105080,,,,,,,,881440,
+5월25일,,1391850,,998855,,105080,,,,877960,,481950,,,,881440,
+5월26일,,1391850,,998855,,105080,877960,877960,,481950,,,,881440,
+5월27일,,1471770,,1068860,,104320,,,,479440,,,,,,882875,
+5월28일,,1527795,,1103700,,103880,,873600,,460200,,,,,,
+5월29일,,1563615,,1129700,,104480,,869600,,453440,,,,,,
+5월30일,,1691460,,1199510,,106240,,870240,,483600,,,,,,
+6월1일,,6591580,4954645,,,,,,,,,,,,,,
+6월2일,,6785450,,1221090,,107360,,865200,,479570,,88880,88880,,,
+6월5일,,6036800,,1091090,,105560,,889280,,499200,,90570,,,,,
+6월6일,8712500,6036800,,1091090,,105560,,889280,,499200,,90570,,,,,
+6월8일,8712500,6036800,,1091090,,105560,,889280,,499200,,90570,,,,,
+6월9일,8003575,5499725,,989040,,102080,,877520,,451360,,83850,,,,,
+6월10일,8779740,6135325,,1115205,,100160,,868560,,474500,,84990,,,,,
+6월11일,8237705,5692925,,1047150,,,,872760,,443300,,81810,,,,,
+6월12일,8353655,5784975,,1066000,,,,874440,,447200,,82200,,,,,`;
         
         processRawText(dummyText);
     }
