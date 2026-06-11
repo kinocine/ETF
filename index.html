@@ -140,8 +140,7 @@
         }
         .note-content {
             font-size: 13px;
-            color: #B2BEC3;
-            font-style: italic;
+            color: #2F3542;
         }
 
         /* 과거 투자 종목 (보관함) 영역 */
@@ -213,22 +212,21 @@
             <div class="dashboard-card">
                 <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
                 <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
-                
                 <div class="status-card">
                     <div class="status-label">타이거200IT 현황</div>
-                    <div class="status-value">6,135,325 KRW</div>
-                    <div class="status-change">전일 대비 변동: +98,525 (+1.63%)</div>
+                    <div class="status-value" id="val-0">로딩 중...</div>
+                    <div class="status-change" id="chg-0">전일 대비 변동: 계산 중...</div>
                 </div>
                 <div class="alert-banner">
-                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일: 6월1일) 증감액</div>
-                    <div class="alert-value">-456,255 (-6.92%)</div>
+                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-value" id="gap-0">계산 중...</div>
                 </div>
                 <div class="chart-container">
-                    <img class="chart-placeholder" src="20260611_140449.png" alt="차트">
+                    <img class="chart-placeholder" id="chart-0" src="" alt="차트">
                 </div>
                 <div class="note-container">
                     <div class="note-header">📙 투자 노트 (NOTE)</div>
-                    <div class="note-content">해당 종목에 등록된 투자 노트가 없습니다.</div>
+                    <div class="note-content" id="note-0">불러오는 중...</div>
                 </div>
                 <div class="archive-container">
                     <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
@@ -243,22 +241,59 @@
         <div class="dashboard-page">
             <div class="dashboard-card">
                 <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 시스템</p>
+                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
                 <div class="status-card">
                     <div class="status-label">KODEXIT 현황</div>
-                    <div class="status-value">0 KRW</div>
-                    <div class="status-change">전일 대비 변동: 0 (0.00%)</div>
+                    <div class="status-value" id="val-1">로딩 중...</div>
+                    <div class="status-change" id="chg-1">전일 대비 변동: 계산 중...</div>
                 </div>
+                <div class="alert-banner">
+                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-value" id="gap-1">계산 중...</div>
                 </div>
+                <div class="chart-container">
+                    <img class="chart-placeholder" id="chart-1" src="" alt="차트">
+                </div>
+                <div class="note-container">
+                    <div class="note-header">📙 투자 노트 (NOTE)</div>
+                    <div class="note-content" id="note-1">불러오는 중...</div>
+                </div>
+                <div class="archive-container">
+                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
+                    <div class="archive-list">
+                        <div class="archive-item">KODEXAI전력핵심설비</div>
+                        <div class="archive-item">PLUSK방산</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="dashboard-page">
             <div class="dashboard-card">
                 <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 시스템</p>
+                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
                 <div class="status-card">
                     <div class="status-label">ACE 미국빅테크TOP7Plus 현황</div>
-                    <div class="status-value">0 KRW</div>
+                    <div class="status-value" id="val-2">로딩 중...</div>
+                    <div class="status-change" id="chg-2">전일 대비 변동: 계산 중...</div>
+                </div>
+                <div class="alert-banner">
+                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-value" id="gap-2">계산 중...</div>
+                </div>
+                <div class="chart-container">
+                    <img class="chart-placeholder" id="chart-2" src="" alt="차트">
+                </div>
+                <div class="note-container">
+                    <div class="note-header">📙 투자 노트 (NOTE)</div>
+                    <div class="note-content" id="note-2">불러오는 중...</div>
+                </div>
+                <div class="archive-container">
+                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
+                    <div class="archive-list">
+                        <div class="archive-item">KODEXAI전력핵심설비</div>
+                        <div class="archive-item">PLUSK방산</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -266,10 +301,29 @@
         <div class="dashboard-page">
             <div class="dashboard-card">
                 <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 시스템</p>
+                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
                 <div class="status-card">
                     <div class="status-label">TIGER미국배당다우존스 현황</div>
-                    <div class="status-value">0 KRW</div>
+                    <div class="status-value" id="val-3">로딩 중...</div>
+                    <div class="status-change" id="chg-3">전일 대비 변동: 계산 중...</div>
+                </div>
+                <div class="alert-banner">
+                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-value" id="gap-3">계산 중...</div>
+                </div>
+                <div class="chart-container">
+                    <img class="chart-placeholder" id="chart-3" src="" alt="차트">
+                </div>
+                <div class="note-container">
+                    <div class="note-header">📙 투자 노트 (NOTE)</div>
+                    <div class="note-content" id="note-3">불러오는 중...</div>
+                </div>
+                <div class="archive-container">
+                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
+                    <div class="archive-list">
+                        <div class="archive-item">KODEXAI전력핵심설비</div>
+                        <div class="archive-item">PLUSK방산</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -277,10 +331,29 @@
         <div class="dashboard-page">
             <div class="dashboard-card">
                 <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 시스템</p>
+                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
                 <div class="status-card">
                     <div class="status-label">KIWOOM미국양자컴퓨팅 현황</div>
-                    <div class="status-value">0 KRW</div>
+                    <div class="status-value" id="val-4">로딩 중...</div>
+                    <div class="status-change" id="chg-4">전일 대비 변동: 계산 중...</div>
+                </div>
+                <div class="alert-banner">
+                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-value" id="gap-4">계산 중...</div>
+                </div>
+                <div class="chart-container">
+                    <img class="chart-placeholder" id="chart-4" src="" alt="차트">
+                </div>
+                <div class="note-container">
+                    <div class="note-header">📙 투자 노트 (NOTE)</div>
+                    <div class="note-content" id="note-4">불러오는 중...</div>
+                </div>
+                <div class="archive-container">
+                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
+                    <div class="archive-list">
+                        <div class="archive-item">KODEXAI전력핵심설비</div>
+                        <div class="archive-item">PLUSK방산</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -288,10 +361,29 @@
         <div class="dashboard-page">
             <div class="dashboard-card">
                 <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 시스템</p>
+                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
                 <div class="status-card">
                     <div class="status-label">1Q미국우주항공테크 현황</div>
-                    <div class="status-value">0 KRW</div>
+                    <div class="status-value" id="val-5">로딩 중...</div>
+                    <div class="status-change" id="chg-5">전일 대비 변동: 계산 중...</div>
+                </div>
+                <div class="alert-banner">
+                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-value" id="gap-5">계산 중...</div>
+                </div>
+                <div class="chart-container">
+                    <img class="chart-placeholder" id="chart-5" src="" alt="차트">
+                </div>
+                <div class="note-container">
+                    <div class="note-header">📙 투자 노트 (NOTE)</div>
+                    <div class="note-content" id="note-5">불러오는 중...</div>
+                </div>
+                <div class="archive-container">
+                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
+                    <div class="archive-list">
+                        <div class="archive-item">KODEXAI전력핵심설비</div>
+                        <div class="archive-item">PLUSK방산</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -309,6 +401,45 @@
 </div>
 
 <script>
+    // 🔗 [설정 필수] 기존에 사용하시던 구글 스프레드시트 ID와 시트명을 여기에 적어주세요!
+    const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"; 
+    const SHEET_NAME = "시트1"; 
+    const API_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+
+    // 구글 시트에서 데이터를 비동기로 읽어와 6개 탭에 순서대로 꽂아 넣는 함수
+    async function loadGoogleSheetData() {
+        try {
+            const response = await fetch(API_URL);
+            const text = await response.text();
+            const jsonData = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
+            const rows = jsonData.table.rows;
+
+            // 최대 6개 종목 매핑 (행 반복 데이터 매칭)
+            for (let i = 0; i < 6; i++) {
+                if (!rows[i]) break; // 데이터가 부족하면 탈출
+                
+                const row = rows[i].c;
+                
+                // 각 열(Column) 데이터 추출 규칙 적용
+                const currentVal = row[1] ? (row[1].f || row[1].v) : '0'; // B열: 자산 현황
+                const changeVal  = row[2] ? row[2].v : '0 (0.00%)';       // C열: 전일 대비 변동
+                const gapVal     = row[3] ? row[3].v : '0 (0.00%)';       // D열: 기준일 대비 증감액
+                const chartSrc   = row[4] ? row[4].v : '';                // E열: 차트 이미지 파일명
+                const noteText   = row[5] ? row[5].v : '해당 종목에 등록된 투자 노트가 없습니다.'; // F열: 노트
+
+                // 매칭되는 ID를 찾아 HTML 텍스트 실시간 반영
+                document.getElementById(`val-${i}`).innerText = currentVal + " KRW";
+                document.getElementById(`chg-${i}`).innerText = "전일 대비 변동: " + changeVal;
+                document.getElementById(`gap-${i}`).innerText = gapVal;
+                document.getElementById(`chart-${i}`).src = chartSrc;
+                document.getElementById(`note-${i}`).innerText = noteText;
+            }
+        } catch (error) {
+            console.error("스프레드시트 데이터 연동 실패:", error);
+        }
+    }
+
+    // 터치 인터랙션 스크립트 (기존 유지)
     const track = document.getElementById('track');
     const viewport = document.getElementById('viewport');
     const dots = document.querySelectorAll('.dot');
@@ -320,7 +451,6 @@
     let prevTranslate = 0;
     let isDragging = false;
 
-    // 터치 이벤트 연결 (모바일용 스와이프 구현)
     viewport.addEventListener('touchstart', touchStart);
     viewport.addEventListener('touchmove', touchMove);
     viewport.addEventListener('touchend', touchEnd);
@@ -328,15 +458,13 @@
     function touchStart(event) {
         startX = event.touches[0].clientX;
         isDragging = true;
-        track.style.transition = 'none'; // 드래그 중에는 애니메이션 끄기
+        track.style.transition = 'none';
     }
 
     function touchMove(event) {
         if (!isDragging) return;
         const currentX = event.touches[0].clientX;
         const diffX = currentX - startX;
-        
-        // 현재 위치에서 당기는 만큼 트랙 이동 계산
         currentTranslate = prevTranslate + diffX;
         track.style.transform = `translateX(${currentTranslate}px)`;
     }
@@ -345,7 +473,6 @@
         isDragging = false;
         const movedBy = currentTranslate - prevTranslate;
 
-        // 50픽셀 이상 밀었을 때만 페이지 전환 조건 성립
         if (movedBy < -50 && currentIndex < totalPages - 1) {
             currentIndex++;
         } else if (movedBy > 50 && currentIndex > 0) {
@@ -355,7 +482,6 @@
         updatePosition();
     }
 
-    // 위치 업데이트 및 하단 도트 상태 활성화
     function updatePosition() {
         const width = viewport.clientWidth;
         prevTranslate = -currentIndex * width;
@@ -363,7 +489,6 @@
         track.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
         track.style.transform = `translateX(${prevTranslate}px)`;
 
-        // 도트 표시 업데이트
         dots.forEach((dot, index) => {
             if (index === currentIndex) {
                 dot.classList.add('active');
@@ -373,8 +498,10 @@
         });
     }
 
-    // 화면 사이즈 변경 대응
     window.addEventListener('resize', updatePosition);
+
+    // 페이지 열릴 때 구글 데이터 즉시 호출 로드
+    loadGoogleSheetData();
 </script>
 
 </body>
