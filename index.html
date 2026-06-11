@@ -279,8 +279,8 @@
     const SPREADSHEET_CSV_URL = ""; 
 
     let globalRawRows = [];
-    let activeStocks = [];   // 현재 운용중인 종목 (잔고 > 0)
-    let pastStocks = [];     // 전량 매도된 종목 (잔고 = 0 혹은 누락)
+    let activeStocks = [];   // 현재 운용중인 종목
+    let pastStocks = [];     // 보관함 종목 ([0] 처리된 종목)
     let currentPageIndex = 0;
     let currentChart = null;
 
@@ -334,80 +334,57 @@
         buildStockCategorization();
     }
 
-    // 💡 투자 노트 다중 행 누적 추출 및 전량 매도 분기 처리 로직
+    // 💡 종목 분류 및 투자 노트 추출 매핑 핵심 함수
     function buildStockCategorization() {
         const headers = globalRawRows[0];
+        const noteRow = globalRawRows[1]; // 2행 (인덱스 1)을 고정 포인터로 설정
         
         activeStocks = [];
         pastStocks = [];
 
-        // 1행을 스캔하면서 종목과 우측 BUY의 위치를 동적으로 파악
         for (let i = 0; i < headers.length; i++) {
             const label = headers[i];
             
-            // 고정 필드가 아니고 값이 비어있지 않으며 'BUY'가 아닌 것 = 종목명 발견!
             if (label && !['날짜', 'ETF', 'BUY'].includes(label)) {
                 
-                // 우측 열이 BUY 헤더인지 파악
                 let buyIdx = -1;
                 if (i + 1 < headers.length && headers[i + 1] === 'BUY') {
                     buyIdx = i + 1;
                 }
 
-                // 📌 [과거종목 처리] 최하단 행(최신 날짜 행)의 잔고 값을 기준으로 활성/과거 분류
+                // [요구사항 2] 구글시트 최하단 셀에 딱 [0]이 입력된 것만 과거 보유 종목으로 필터링
                 let lastRowData = globalRawRows[globalRawRows.length - 1];
-                let latestCellValue = lastRowData[i] ? lastRowData[i].replace(/,/g, '').replace(/\s/g, '') : '';
+                let latestCellValue = lastRowData[i] ? lastRowData[i].replace(/\s/g, '') : '';
                 
-                let isCurrentInvestment = false;
-                if (latestCellValue !== '' && latestCellValue !== '0' && !isNaN(parseFloat(latestCellValue))) {
-                    if (parseFloat(latestCellValue) > 0) {
-                        isCurrentInvestment = true;
-                    }
+                let isPastInvestment = (latestCellValue === '0');
+
+                // [요구사항 1] 각 종목별 2행(noteRow)에 있는 텍스트를 그대로 가져옴 (BUY열에 적혔든 종목열에 적혔든 2행 값 매핑)
+                let extractedNote = "";
+                if (buyIdx !== -1 && noteRow[buyIdx]) {
+                    extractedNote = noteRow[buyIdx]; // BUY가 있을 경우 BUY열 2행 우선 추출
+                } else if (noteRow[i]) {
+                    extractedNote = noteRow[i];      // BUY가 없는 고정 종목 등은 해당 종목열 2행 추출
                 }
 
-                // 📌 [투자 노트 추출 핵심 수정] break를 제거하고 모든 행의 텍스트 설명을 찾아 배열에 모은 뒤 합쳐줍니다.
-                let noteParts = [];
-                if (buyIdx !== -1) {
-                    for (let r = 1; r < globalRawRows.length; r++) {
-                        let cellContent = globalRawRows[r][buyIdx];
-                        // 숫자가 아니거나, 줄바꿈이 있거나, 특수문자가 포함된 텍스트 메모를 감지
-                        if (cellContent && (isNaN(Number(cellContent.replace(/,/g, ''))) || cellContent.includes('\n') || cellContent.includes('*'))) {
-                            // 중복된 내용이 없을 때만 추가
-                            if (!noteParts.includes(cellContent)) {
-                                noteParts.push(cellContent);
-                            }
-                        }
-                    }
-                }
-
-                // 텍스트들을 줄바꿈(\n)으로 이어서 하나의 완성된 노트로 변환
-                let extractedNote = noteParts.join('\n\n');
-
-                // BUY 열이 없는 고정 예외 종목 상단 메모 역추적 보완
                 if (!extractedNote) {
-                    let fallbackCell = globalRawRows[1][i] || globalRawRows[2][i];
-                    if (fallbackCell && isNaN(Number(fallbackCell.replace(/,/g, '')))) {
-                        extractedNote = fallbackCell;
-                    }
+                    extractedNote = "등록된 투자 노트가 없습니다.";
                 }
 
                 const stockObj = {
                     name: label,
                     valIdx: i,
                     buyIdx: buyIdx,
-                    note: extractedNote || "등록된 투자 노트가 없습니다."
+                    note: extractedNote
                 };
 
-                // 분기처리 조건문 적용
-                if (isCurrentInvestment) {
-                    activeStocks.push(stockObj);
-                } else {
+                if (isPastInvestment) {
                     pastStocks.push(stockObj);
+                } else {
+                    activeStocks.push(stockObj);
                 }
             }
         }
 
-        // 과거 종목 하단 칩 UI 렌더링
         renderPastStocksUI();
 
         if (activeStocks.length > 0) {
@@ -445,7 +422,7 @@
         document.getElementById('prevBtn').disabled = (currentPageIndex === 0);
         document.getElementById('nextBtn').disabled = (currentPageIndex === activeStocks.length - 1);
 
-        // 투자 노트 실시간 바인딩
+        // 투자 노트 화면 바인딩
         document.getElementById('noteContent').innerText = currentStock.note;
 
         renderDashboard(currentStock);
@@ -461,16 +438,17 @@
         let isStarted = false;   
         let lastCostDateStr = "-"; 
 
+        // [요구사항 3] 오염 원천 차단: i = 2(3행)부터 데이터를 읽어 들여 2행 텍스트 간섭을 차단
         for (let i = 2; i < globalRawRows.length; i++) {
             const row = globalRawRows[i];
             const dateStr = row[0];
 
-            if (!dateStr || (!dateStr.includes('월' ) && !dateStr.includes('.'))) continue;
+            if (!dateStr || (!dateStr.includes('월') && !dateStr.includes('.'))) continue;
 
             const cleanVal = row[stock.valIdx] ? row[stock.valIdx].replace(/,/g, '').replace(/\s/g, '') : '';
             const rawVal = cleanVal ? parseFloat(cleanVal) : NaN;
 
-            // 매수원가 파싱 및 누적
+            // 순수 3행 이하 데이터 내에서만 매수 원가를 추출하고 누적 처리
             if (stock.buyIdx !== -1) {
                 const rawCellText = row[stock.buyIdx] ? row[stock.buyIdx].trim() : '';
                 if (rawCellText !== '') {
