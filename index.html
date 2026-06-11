@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Kinocine 투자 자산 대시보드</title>
+    <title>Happy Money</title>
     <style>
         * {
             box-sizing: border-box;
@@ -20,7 +20,7 @@
             overflow-x: hidden;
         }
 
-        /* 전체 스와이프 컨테이너 (Viewport) */
+        /* 전체 가로 슬라이드 뷰포트 */
         .swiper-viewport {
             width: 100%;
             max-width: 480px;
@@ -28,18 +28,18 @@
             position: relative;
         }
 
-        /* 내부 가로 정렬 트랙 */
+        /* 내부 가로 이동 트랙 */
         .swiper-track {
             display: flex;
-            width: 600%; /* 종목 개수(6개)만큼 가로 확장 */
+            width: 600%; /* 6개 페이지 */
             transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
             will-change: transform;
         }
 
-        /* 개별 대시보드 페이지 (화면당 1개씩 꽉 차게) */
+        /* 개별 대시보드 페이지 */
         .dashboard-page {
-            width: 16.6666%; /* 100% / 6개 */
-            padding: 20px 16px 80px 16px; /* 하단 내비게이션 여백 확보 */
+            width: 16.6666%;
+            padding: 20px 16px 80px 16px;
         }
 
         .dashboard-card {
@@ -49,20 +49,14 @@
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
         }
         
-        /* 타이틀 영역 */
+        /* 1. 타이틀 영역 수정: [Happy Money]로 단순화 */
         .header-title {
             text-align: center;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
             color: #1E272E;
-            margin-bottom: 4px;
-        }
-        .header-subtitle {
-            text-align: center;
-            font-size: 11px;
-            color: #88929A;
             margin-bottom: 24px;
-            line-height: 1.4;
+            letter-spacing: -0.5px;
         }
 
         /* 현황 카드 (금액 표시) */
@@ -90,7 +84,7 @@
             color: #DC2626;
         }
 
-        /* 증감액 대형 알림 배너 */
+        /* 레드 박스 알림 배너 */
         .alert-banner {
             background-color: #D32F2F;
             color: #FFFFFF;
@@ -102,13 +96,14 @@
             font-size: 12px;
             opacity: 0.9;
             margin-bottom: 8px;
+            font-weight: 500;
         }
         .alert-value {
             font-size: 22px;
             font-weight: bold;
         }
 
-        /* 차트 영역 컨테이너 */
+        /* 차트 영역 */
         .chart-container {
             width: 100%;
             margin-bottom: 24px;
@@ -141,9 +136,10 @@
         .note-content {
             font-size: 13px;
             color: #2F3542;
+            line-height: 1.5;
         }
 
-        /* 과거 투자 종목 (보관함) 영역 */
+        /* 과거 투자 종목 (보관함) */
         .archive-container {
             background-color: #F1F2F6;
             border-radius: 16px;
@@ -174,7 +170,7 @@
             color: #2F3542;
         }
 
-        /* 하단 고정 페이지 인디케이터 / 내비게이션 */
+        /* 하단 인디케이터 바 */
         .bottom-nav {
             position: fixed;
             bottom: 16px;
@@ -210,15 +206,14 @@
         
         <div class="dashboard-page">
             <div class="dashboard-card">
-                <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
+                <h2 class="header-title">Happy Money</h2>
                 <div class="status-card">
                     <div class="status-label">타이거200IT 현황</div>
                     <div class="status-value" id="val-0">로딩 중...</div>
                     <div class="status-change" id="chg-0">전일 대비 변동: 계산 중...</div>
                 </div>
                 <div class="alert-banner">
-                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-label" id="lbl-0">투자총액 대비 증감액</div>
                     <div class="alert-value" id="gap-0">계산 중...</div>
                 </div>
                 <div class="chart-container">
@@ -240,15 +235,14 @@
 
         <div class="dashboard-page">
             <div class="dashboard-card">
-                <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
+                <h2 class="header-title">Happy Money</h2>
                 <div class="status-card">
                     <div class="status-label">KODEXIT 현황</div>
                     <div class="status-value" id="val-1">로딩 중...</div>
                     <div class="status-change" id="chg-1">전일 대비 변동: 계산 중...</div>
                 </div>
                 <div class="alert-banner">
-                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-label" id="lbl-1">투자총액 대비 증감액</div>
                     <div class="alert-value" id="gap-1">계산 중...</div>
                 </div>
                 <div class="chart-container">
@@ -270,15 +264,14 @@
 
         <div class="dashboard-page">
             <div class="dashboard-card">
-                <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
+                <h2 class="header-title">Happy Money</h2>
                 <div class="status-card">
                     <div class="status-label">ACE 미국빅테크TOP7Plus 현황</div>
                     <div class="status-value" id="val-2">로딩 중...</div>
                     <div class="status-change" id="chg-2">전일 대비 변동: 계산 중...</div>
                 </div>
                 <div class="alert-banner">
-                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-label" id="lbl-2">투자총액 대비 증감액</div>
                     <div class="alert-value" id="gap-2">계산 중...</div>
                 </div>
                 <div class="chart-container">
@@ -300,15 +293,14 @@
 
         <div class="dashboard-page">
             <div class="dashboard-card">
-                <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
+                <h2 class="header-title">Happy Money</h2>
                 <div class="status-card">
                     <div class="status-label">TIGER미국배당다우존스 현황</div>
                     <div class="status-value" id="val-3">로딩 중...</div>
                     <div class="status-change" id="chg-3">전일 대비 변동: 계산 중...</div>
                 </div>
                 <div class="alert-banner">
-                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-label" id="lbl-3">투자총액 대비 증감액</div>
                     <div class="alert-value" id="gap-3">계산 중...</div>
                 </div>
                 <div class="chart-container">
@@ -330,15 +322,14 @@
 
         <div class="dashboard-page">
             <div class="dashboard-card">
-                <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
+                <h2 class="header-title">Happy Money</h2>
                 <div class="status-card">
                     <div class="status-label">KIWOOM미국양자컴퓨팅 현황</div>
                     <div class="status-value" id="val-4">로딩 중...</div>
                     <div class="status-change" id="chg-4">전일 대비 변동: 계산 중...</div>
                 </div>
                 <div class="alert-banner">
-                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-label" id="lbl-4">투자총액 대비 증감액</div>
                     <div class="alert-value" id="gap-4">계산 중...</div>
                 </div>
                 <div class="chart-container">
@@ -360,15 +351,14 @@
 
         <div class="dashboard-page">
             <div class="dashboard-card">
-                <h2 class="header-title">Kinocine 투자 자산 대시보드</h2>
-                <p class="header-subtitle">구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
+                <h2 class="header-title">Happy Money</h2>
                 <div class="status-card">
                     <div class="status-label">1Q미국우주항공테크 현황</div>
                     <div class="status-value" id="val-5">로딩 중...</div>
                     <div class="status-change" id="chg-5">전일 대비 변동: 계산 중...</div>
                 </div>
                 <div class="alert-banner">
-                    <div class="alert-label">기준일 대비(원가 '셀' 최근 수치 입력일) 증감액</div>
+                    <div class="alert-label" id="lbl-5">투자총액 대비 증감액</div>
                     <div class="alert-value" id="gap-5">계산 중...</div>
                 </div>
                 <div class="chart-container">
@@ -401,45 +391,57 @@
 </div>
 
 <script>
-    // 🔗 [설정 필수] 기존에 사용하시던 구글 스프레드시트 ID와 시트명을 여기에 적어주세요!
+    // 🔗 [필수 설정] 사용 중이신 구글 스프레드시트의 ID와 정확한 시트명을 입력해주세요.
     const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"; 
     const SHEET_NAME = "시트1"; 
     const API_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
-    // 구글 시트에서 데이터를 비동기로 읽어와 6개 탭에 순서대로 꽂아 넣는 함수
+    // 스프레드시트 연동 핵심 로직
     async function loadGoogleSheetData() {
         try {
             const response = await fetch(API_URL);
             const text = await response.text();
-            const jsonData = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
+            
+            // 구글 특유의 JSONP 껍데기를 날리고 순수 JSON 객체만 파싱
+            const jsonStart = text.indexOf("{");
+            const jsonEnd = text.lastIndexOf("}");
+            const jsonData = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
             const rows = jsonData.table.rows;
 
-            // 최대 6개 종목 매핑 (행 반복 데이터 매칭)
+            // 6개 슬라이드 순회 매핑 (행 단위 파싱)
             for (let i = 0; i < 6; i++) {
-                if (!rows[i]) break; // 데이터가 부족하면 탈출
+                if (!rows[i]) break; 
                 
                 const row = rows[i].c;
                 
-                // 각 열(Column) 데이터 추출 규칙 적용
+                // [시트 데이터 매핑 가이드 규칙]
+                // row[0] -> A열 / row[1] -> B열 ... 순서대로 정의
                 const currentVal = row[1] ? (row[1].f || row[1].v) : '0'; // B열: 자산 현황
                 const changeVal  = row[2] ? row[2].v : '0 (0.00%)';       // C열: 전일 대비 변동
-                const gapVal     = row[3] ? row[3].v : '0 (0.00%)';       // D열: 기준일 대비 증감액
-                const chartSrc   = row[4] ? row[4].v : '';                // E열: 차트 이미지 파일명
-                const noteText   = row[5] ? row[5].v : '해당 종목에 등록된 투자 노트가 없습니다.'; // F열: 노트
+                const gapVal     = row[3] ? row[3].v : '0 (-0.00%)';      // D열: 증감 수치
+                const chartSrc   = row[4] ? row[4].v : '';                // E열: 차트 경로/파일명
+                const noteText   = row[5] ? row[5].v : '해당 종목에 등록된 투자 노트가 없습니다.'; // F열: 투자 노트
+                
+                // 가변 레드박스 타이틀 텍스트 조합용 변수 (G열에 날짜와 총액 정보를 넣어두었을 때 가정)
+                // 만약 시트에 해당 열이 따로 없다면 기본 포맷팅 문구가 들어갑니다.
+                const totalTargetInfo = row[6] ? row[6].v : '5.6 234,456원'; 
 
-                // 매칭되는 ID를 찾아 HTML 텍스트 실시간 반영
+                // HTML 요소에 ID 매칭 기반 동적 바인딩
                 document.getElementById(`val-${i}`).innerText = currentVal + " KRW";
                 document.getElementById(`chg-${i}`).innerText = "전일 대비 변동: " + changeVal;
                 document.getElementById(`gap-${i}`).innerText = gapVal;
                 document.getElementById(`chart-${i}`).src = chartSrc;
                 document.getElementById(`note-${i}`).innerText = noteText;
+                
+                // 레드박스 상단 라벨 동적 변경
+                document.getElementById(`lbl-${i}`).innerText = `투자총액 (${totalTargetInfo}) 대비 증감액`;
             }
         } catch (error) {
-            console.error("스프레드시트 데이터 연동 실패:", error);
+            console.error("데이터 동적 바인딩 로드 실패:", error);
         }
     }
 
-    // 터치 인터랙션 스크립트 (기존 유지)
+    // 터치 인터랙션 (기존 스와이프 기능 정밀도 유지)
     const track = document.getElementById('track');
     const viewport = document.getElementById('viewport');
     const dots = document.querySelectorAll('.dot');
@@ -500,7 +502,7 @@
 
     window.addEventListener('resize', updatePosition);
 
-    // 페이지 열릴 때 구글 데이터 즉시 호출 로드
+    // 구글 스프레드시트 트래킹 시작
     loadGoogleSheetData();
 </script>
 
