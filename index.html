@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kinocine 자산 관리 대시보드</title>
+    <title>Happy Money</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -37,53 +37,58 @@
         }
 
         header {
-            margin-bottom: 30px;
+            margin-bottom: 25px;
             text-align: center;
         }
 
         header h1 {
-            font-size: 24px;
-            font-weight: 700;
+            font-size: 28px;
+            font-weight: 800;
             color: var(--text-main);
-            margin-bottom: 5px;
+            letter-spacing: -0.5px;
         }
 
-        header p {
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        /* 탭 스타일 */
-        .tabs-container {
+        /* 페이지 네비게이션 컨트롤러 */
+        .page-controller {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 25px;
-            justify-content: center;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--card-bg);
+            padding: 12px 20px;
+            border-radius: 30px;
+            border: 1px solid var(--border-color);
+            max-width: 500px;
+            margin: 0 auto 25px auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
         }
 
-        .tab-btn {
-            background-color: var(--card-bg);
+        .nav-btn {
+            background-color: var(--bg-color);
             border: 1px solid var(--border-color);
-            padding: 10px 18px;
+            padding: 8px 16px;
             border-radius: 20px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
             color: var(--text-main);
+            transition: all 0.2s ease;
         }
 
-        .tab-btn:hover {
-            border-color: var(--accent-color);
-            color: var(--accent-color);
-        }
-
-        .tab-btn.active {
+        .nav-btn:hover:not(:disabled) {
             background-color: var(--accent-color);
             border-color: var(--accent-color);
             color: white;
-            box-shadow: 0 4px 10px rgba(26, 188, 156, 0.3);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .current-stock-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-color);
         }
 
         /* 대시보드 카드 레이아웃 */
@@ -129,12 +134,12 @@
             width: 100%;
         }
 
-        /* 로딩 알림 */
+        /* 로딩 안내 */
         .loading {
             text-align: center;
-            padding: 50px;
-            font-size: 16px;
+            font-size: 15px;
             color: var(--text-muted);
+            font-weight: 600;
         }
     </style>
 </head>
@@ -142,12 +147,13 @@
 
 <div class="container">
     <header>
-        <h1 id="dashboard-title">Kinocine 투자 자산 대시보드</h1>
-        <p>구글 스프레드시트 연동형 실시간 매수 원가 대비 수익률 추적 시스템</p>
+        <h1 id="dashboard-title">Happy Money</h1>
     </header>
 
-    <div class="tabs-container" id="tabsBox">
-        <div class="loading">데이터를 로드하는 중입니다...</div>
+    <div class="page-controller">
+        <button class="nav-btn" id="prevBtn" onclick="movePage(-1)" disabled>이전 종목</button>
+        <div class="current-stock-title" id="stockTitle"><span class="loading">불러오는 중...</span></div>
+        <button class="nav-btn" id="nextBtn" onclick="movePage(1)" disabled>다음 종목</button>
     </div>
 
     <div class="dashboard-grid">
@@ -179,7 +185,8 @@
     const SPREADSHEET_CSV_URL = ""; 
 
     let globalRawRows = [];
-    let parsedTabs = [];
+    let parsedStocks = [];
+    let currentPageIndex = 0;
     let currentChart = null;
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -203,7 +210,7 @@
             });
     }
 
-    // 따옴표 내부의 콤마를 안전하게 보호하면서 분할하는 고급 CSV 파서
+    // 따옴표 내부의 콤마를 보호하는 완벽한 파서
     function parseCSVLine(line) {
         const result = [];
         let current = '';
@@ -212,7 +219,7 @@
         for (let i = 0; i < line.length; i++) {
             const char = line[i];
             if (char === '"') {
-                inQuotes = !inQuotes; // 따옴표 구간 진입 또는 탈출
+                inQuotes = !inQuotes;
             } else if (char === ',' && !inQuotes) {
                 result.push(current.trim());
                 current = '';
@@ -226,54 +233,61 @@
 
     function processRawText(text) {
         const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-        
-        // 정규식 매칭 방식 대신 문자열 순회 파서로 교체하여 "1,091,090" 같은 데이터 완벽 방어
         globalRawRows = lines.map(line => parseCSVLine(line));
 
         if (globalRawRows.length === 0) return;
 
-        buildTabsAndRender();
+        buildStockPages();
     }
 
-    function buildTabsAndRender() {
+    // 헤더를 분석해 종목 리스트 생성
+    function buildStockPages() {
         const headers = globalRawRows[0];
-        parsedTabs = [];
+        parsedStocks = [];
 
-        // C열(인덱스 2)부터 2칸씩 이동하며 대시보드 탭 생성
+        // C열(인덱스 2)부터 2칸씩 묶어 데이터 열 인덱스 매핑
         for (let i = 2; i < headers.length; i += 2) {
             const label = headers[i];
             if (label && !['원가', 'ETF', '날짜'].includes(label)) {
-                parsedTabs.push({
+                parsedStocks.push({
                     name: label,
-                    valIdx: i,       // 평가금 열 인덱스
-                    costIdx: i + 1   // 원가 열 인덱스
+                    valIdx: i,       
+                    costIdx: i + 1   
                 });
             }
         }
 
-        const tabsBox = document.getElementById('tabsBox');
-        tabsBox.innerHTML = '';
-
-        parsedTabs.forEach((tab, index) => {
-            const btn = document.createElement('button');
-            btn.className = `tab-btn ${index === 0 ? 'active' : ''}`;
-            btn.innerText = tab.name;
-            btn.onclick = () => switchTab(index, btn);
-            tabsBox.appendChild(btn);
-        });
-
-        if (parsedTabs.length > 0) {
-            renderDashboard(parsedTabs[0]);
+        if (parsedStocks.length > 0) {
+            currentPageIndex = 0;
+            updateDashboardPage();
         }
     }
 
-    function switchTab(index, targetBtn) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        targetBtn.classList.add('active');
-        renderDashboard(parsedTabs[index]);
+    // 페이지 이동 함수
+    function movePage(direction) {
+        const targetIndex = currentPageIndex + direction;
+        if (targetIndex >= 0 && targetIndex < parsedStocks.length) {
+            currentPageIndex = targetIndex;
+            updateDashboardPage();
+        }
     }
 
-    function renderDashboard(tab) {
+    // 페이지 변경 시 UI 및 버튼 상태 업데이트
+    function updateDashboardPage() {
+        const currentStock = parsedStocks[currentPageIndex];
+        
+        // 종목 타이틀 교체
+        document.getElementById('stockTitle').innerText = currentStock.name;
+
+        // 네비게이션 버튼 활성/비활성 처리
+        document.getElementById('prevBtn').disabled = (currentPageIndex === 0);
+        document.getElementById('nextBtn').disabled = (currentPageIndex === parsedStocks.length - 1);
+
+        // 데이터 계산 및 렌더링
+        renderDashboard(currentStock);
+    }
+
+    function renderDashboard(stock) {
         const labels = [];
         const evalValues = [];
         const costValues = [];
@@ -282,16 +296,14 @@
         let lastValidValue = 0;  
         let isStarted = false;   
 
-        // 데이터 행 순회 분석 (데이터 누적 구조 정상화)
         for (let i = 1; i < globalRawRows.length; i++) {
             const row = globalRawRows[i];
             const dateStr = row[0];
 
             if (!dateStr || (!dateStr.includes('월') && !dateStr.includes('.'))) continue;
 
-            // 값 파싱 전 내부의 모든 콤마 및 공백 완벽 제거
-            const cleanVal = row[tab.valIdx] ? row[tab.valIdx].replace(/,/g, '').replace(/\s/g, '') : '';
-            const cleanCost = row[tab.costIdx] ? row[tab.costIdx].replace(/,/g, '').replace(/\s/g, '') : '';
+            const cleanVal = row[stock.valIdx] ? row[stock.valIdx].replace(/,/g, '').replace(/\s/g, '') : '';
+            const cleanCost = row[stock.costIdx] ? row[stock.costIdx].replace(/,/g, '').replace(/\s/g, '') : '';
 
             const rawVal = cleanVal ? parseFloat(cleanVal) : NaN;
             const rawCost = cleanCost ? parseFloat(cleanCost) : NaN;
@@ -313,7 +325,6 @@
             costValues.push(currentCost);
         }
 
-        // 최신 데이터 카드 UI 반영 반영
         const lastIdx = evalValues.length - 1;
         if (lastIdx >= 0) {
             const latestVal = evalValues[lastIdx];
@@ -333,7 +344,7 @@
             rateEl.className = `value ${rate >= 0 ? 'plus' : 'minus'}`;
         }
 
-        drawChart(labels, evalValues, costValues, tab.name);
+        drawChart(labels, evalValues, costValues, stock.name);
     }
 
     function drawChart(labels, evalData, costData, stockName) {
@@ -420,17 +431,4 @@
 5월11일,,1123910,,,,,,100880,,,,,,,,
 5월12일,,1293705,,965705,965705,101420,,,,,,,,1006400
 5월20일,,1222830,,890435,,103800,,,,,,,,811360
-5월25일,,1391850,,998855,,105080,,877960,,481950,,,,,881440
-5월26일,,1391850,,998855,,105080,877960,877960,877960,481950,481950,,,,881440
-5월27일,,1471770,,1068860,,104320,,,,479440,,,,,,882875
-6월1일,,6591580,6591580,1199510,,106240,,,,483600,,,,,,
-6월2일,,6785450,,1221090,,107360,,865200,,479570,,,,88880,,
-6월5일,,6036800,,"1,091,090",,105560,,889280,,499200,,,,90570,,
-6월10일,8779740,6135325,,1115205,,100160,,868560,,474500,,84990,88880,,`;
-        
-        processRawText(dummyText);
-    }
-</script>
-
-</body>
-</html>
+5월25일,,1391850,,998855,,105080,,877960,,481950,,,,,881
