@@ -49,7 +49,7 @@
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
         }
         
-        /* 1. 타이틀 영역 수정: [Happy Money]로 단순화 */
+        /* 타이틀 영역 */
         .header-title {
             text-align: center;
             font-size: 24px;
@@ -391,57 +391,53 @@
 </div>
 
 <script>
-    // 🔗 [필수 설정] 사용 중이신 구글 스프레드시트의 ID와 정확한 시트명을 입력해주세요.
+    // 🔗 [필수 수정] 기존에 정상 동작하던 스프레드시트 ID 값을 여기에 복사해 넣으세요!
     const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"; 
     const SHEET_NAME = "시트1"; 
     const API_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
     // 스프레드시트 연동 핵심 로직
     async function loadGoogleSheetData() {
+        if (SPREADSHEET_ID === "YOUR_SPREADSHEET_ID_HERE") {
+            console.warn("구글 스프레드시트 ID를 입력해야 데이터를 정상적으로 가져옵니다.");
+            return;
+        }
         try {
             const response = await fetch(API_URL);
             const text = await response.text();
             
-            // 구글 특유의 JSONP 껍데기를 날리고 순수 JSON 객체만 파싱
             const jsonStart = text.indexOf("{");
             const jsonEnd = text.lastIndexOf("}");
             const jsonData = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
             const rows = jsonData.table.rows;
 
-            // 6개 슬라이드 순회 매핑 (행 단위 파싱)
             for (let i = 0; i < 6; i++) {
                 if (!rows[i]) break; 
                 
                 const row = rows[i].c;
                 
-                // [시트 데이터 매핑 가이드 규칙]
-                // row[0] -> A열 / row[1] -> B열 ... 순서대로 정의
-                const currentVal = row[1] ? (row[1].f || row[1].v) : '0'; // B열: 자산 현황
-                const changeVal  = row[2] ? row[2].v : '0 (0.00%)';       // C열: 전일 대비 변동
-                const gapVal     = row[3] ? row[3].v : '0 (-0.00%)';      // D열: 증감 수치
-                const chartSrc   = row[4] ? row[4].v : '';                // E열: 차트 경로/파일명
-                const noteText   = row[5] ? row[5].v : '해당 종목에 등록된 투자 노트가 없습니다.'; // F열: 투자 노트
-                
-                // 가변 레드박스 타이틀 텍스트 조합용 변수 (G열에 날짜와 총액 정보를 넣어두었을 때 가정)
-                // 만약 시트에 해당 열이 따로 없다면 기본 포맷팅 문구가 들어갑니다.
+                const currentVal = row[1] ? (row[1].f || row[1].v) : '0'; 
+                const changeVal  = row[2] ? row[2].v : '0 (0.00%)';       
+                const gapVal     = row[3] ? row[3].v : '0 (-0.00%)';      
+                const chartSrc   = row[4] ? row[4].v : '';                
+                const noteText   = row[5] ? row[5].v : '해당 종목에 등록된 투자 노트가 없습니다.'; 
                 const totalTargetInfo = row[6] ? row[6].v : '5.6 234,456원'; 
 
-                // HTML 요소에 ID 매칭 기반 동적 바인딩
                 document.getElementById(`val-${i}`).innerText = currentVal + " KRW";
                 document.getElementById(`chg-${i}`).innerText = "전일 대비 변동: " + changeVal;
                 document.getElementById(`gap-${i}`).innerText = gapVal;
                 document.getElementById(`chart-${i}`).src = chartSrc;
                 document.getElementById(`note-${i}`).innerText = noteText;
-                
-                // 레드박스 상단 라벨 동적 변경
                 document.getElementById(`lbl-${i}`).innerText = `투자총액 (${totalTargetInfo}) 대비 증감액`;
             }
+            // 데이터 매핑 후 슬라이드 위치 리셋하여 UI 밀림 방지
+            updatePosition();
         } catch (error) {
             console.error("데이터 동적 바인딩 로드 실패:", error);
         }
     }
 
-    // 터치 인터랙션 (기존 스와이프 기능 정밀도 유지)
+    // 터치 인터랙션 스크립트
     const track = document.getElementById('track');
     const viewport = document.getElementById('viewport');
     const dots = document.querySelectorAll('.dot');
@@ -502,8 +498,10 @@
 
     window.addEventListener('resize', updatePosition);
 
-    // 구글 스프레드시트 트래킹 시작
-    loadGoogleSheetData();
+    // 브라우저 렌더링이 완전히 끝난 후 구글 데이터 안전하게 동적 호출
+    window.addEventListener('DOMContentLoaded', () => {
+        loadGoogleSheetData();
+    });
 </script>
 
 </body>
