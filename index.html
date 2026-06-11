@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Happy Money</title>
+    <title>Happy Money - Test</title>
     <style>
         * {
             box-sizing: border-box;
@@ -17,29 +17,12 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            overflow-x: hidden;
+            padding: 20px 16px;
         }
 
-        /* 전체 가로 슬라이드 뷰포트 */
-        .swiper-viewport {
+        .dashboard-container {
             width: 100%;
             max-width: 480px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* 내부 가로 이동 트랙 */
-        .swiper-track {
-            display: flex;
-            width: 600%; /* 6개 페이지 */
-            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-            will-change: transform;
-        }
-
-        /* 개별 대시보드 페이지 */
-        .dashboard-page {
-            width: 16.6666%;
-            padding: 20px 16px 80px 16px;
         }
 
         .dashboard-card {
@@ -49,17 +32,14 @@
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
         }
         
-        /* 타이틀 영역 */
         .header-title {
             text-align: center;
             font-size: 24px;
             font-weight: bold;
             color: #1E272E;
             margin-bottom: 24px;
-            letter-spacing: -0.5px;
         }
 
-        /* 현황 카드 (금액 표시) */
         .status-card {
             background-color: #F1F5F9;
             border-radius: 16px;
@@ -84,7 +64,6 @@
             color: #DC2626;
         }
 
-        /* 레드 박스 알림 배너 */
         .alert-banner {
             background-color: #D32F2F;
             color: #FFFFFF;
@@ -103,7 +82,6 @@
             font-weight: bold;
         }
 
-        /* 차트 영역 */
         .chart-container {
             width: 100%;
             margin-bottom: 24px;
@@ -114,20 +92,17 @@
             height: auto;
             display: block;
             border-radius: 12px;
+            background-color: #eee;
         }
 
-        /* 투자 노트 영역 */
         .note-container {
             background-color: #FFFDF0;
             border: 1px solid #FFEAA7;
             border-radius: 16px;
             padding: 20px;
             margin-bottom: 20px;
-            text-align: left;
         }
         .note-header {
-            display: flex;
-            align-items: center;
             font-size: 14px;
             font-weight: bold;
             color: #D63031;
@@ -138,370 +113,86 @@
             color: #2F3542;
             line-height: 1.5;
         }
-
-        /* 과거 투자 종목 (보관함) */
-        .archive-container {
-            background-color: #F1F2F6;
-            border-radius: 16px;
-            padding: 20px;
-            text-align: left;
-        }
-        .archive-header {
-            display: flex;
-            align-items: center;
-            font-size: 14px;
-            font-weight: bold;
-            color: #57606F;
-            margin-bottom: 14px;
-        }
-        .archive-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .archive-item {
-            display: flex;
-            align-items: center;
-            padding: 6px 12px;
-            background-color: #FFFFFF;
-            border: 1px solid #CED6E0;
-            border-radius: 20px;
-            font-size: 12px;
-            color: #2F3542;
-        }
-
-        /* 하단 인디케이터 바 */
-        .bottom-nav {
-            position: fixed;
-            bottom: 16px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(30, 39, 46, 0.9);
-            padding: 10px 18px;
-            border-radius: 25px;
-            display: flex;
-            gap: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            backdrop-filter: blur(4px);
-            z-index: 100;
-        }
-        .dot {
-            width: 8px;
-            height: 8px;
-            background-color: rgba(255,255,255,0.4);
-            border-radius: 50%;
-            transition: all 0.3s ease;
-        }
-        .dot.active {
-            background-color: #10B981;
-            width: 20px;
-            border-radius: 4px;
-        }
     </style>
 </head>
 <body>
 
-<div class="swiper-viewport" id="viewport">
-    <div class="swiper-track" id="track">
+<div class="dashboard-container">
+    <div class="dashboard-card">
+        <h2 class="header-title">Happy Money</h2>
         
-        <div class="dashboard-page">
-            <div class="dashboard-card">
-                <h2 class="header-title">Happy Money</h2>
-                <div class="status-card">
-                    <div class="status-label">타이거200IT 현황</div>
-                    <div class="status-value" id="val-0">로딩 중...</div>
-                    <div class="status-change" id="chg-0">전일 대비 변동: 계산 중...</div>
-                </div>
-                <div class="alert-banner">
-                    <div class="alert-label" id="lbl-0">투자총액 대비 증감액</div>
-                    <div class="alert-value" id="gap-0">계산 중...</div>
-                </div>
-                <div class="chart-container">
-                    <img class="chart-placeholder" id="chart-0" src="" alt="차트">
-                </div>
-                <div class="note-container">
-                    <div class="note-header">📙 투자 노트 (NOTE)</div>
-                    <div class="note-content" id="note-0">불러오는 중...</div>
-                </div>
-                <div class="archive-container">
-                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
-                    <div class="archive-list">
-                        <div class="archive-item">KODEXAI전력핵심설비</div>
-                        <div class="archive-item">PLUSK방산</div>
-                    </div>
-                </div>
-            </div>
+        <div class="status-card">
+            <div class="status-label">타이거200IT 현황</div>
+            <div class="status-value" id="val-test">로딩 중...</div>
+            <div class="status-change" id="chg-test">전일 대비 변동: 계산 중...</div>
         </div>
-
-        <div class="dashboard-page">
-            <div class="dashboard-card">
-                <h2 class="header-title">Happy Money</h2>
-                <div class="status-card">
-                    <div class="status-label">KODEXIT 현황</div>
-                    <div class="status-value" id="val-1">로딩 중...</div>
-                    <div class="status-change" id="chg-1">전일 대비 변동: 계산 중...</div>
-                </div>
-                <div class="alert-banner">
-                    <div class="alert-label" id="lbl-1">투자총액 대비 증감액</div>
-                    <div class="alert-value" id="gap-1">계산 중...</div>
-                </div>
-                <div class="chart-container">
-                    <img class="chart-placeholder" id="chart-1" src="" alt="차트">
-                </div>
-                <div class="note-container">
-                    <div class="note-header">📙 투자 노트 (NOTE)</div>
-                    <div class="note-content" id="note-1">불러오는 중...</div>
-                </div>
-                <div class="archive-container">
-                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
-                    <div class="archive-list">
-                        <div class="archive-item">KODEXAI전력핵심설비</div>
-                        <div class="archive-item">PLUSK방산</div>
-                    </div>
-                </div>
-            </div>
+        
+        <div class="alert-banner">
+            <div class="alert-label" id="lbl-test">투자총액 대비 증감액</div>
+            <div class="alert-value" id="gap-test">계산 중...</div>
         </div>
-
-        <div class="dashboard-page">
-            <div class="dashboard-card">
-                <h2 class="header-title">Happy Money</h2>
-                <div class="status-card">
-                    <div class="status-label">ACE 미국빅테크TOP7Plus 현황</div>
-                    <div class="status-value" id="val-2">로딩 중...</div>
-                    <div class="status-change" id="chg-2">전일 대비 변동: 계산 중...</div>
-                </div>
-                <div class="alert-banner">
-                    <div class="alert-label" id="lbl-2">투자총액 대비 증감액</div>
-                    <div class="alert-value" id="gap-2">계산 중...</div>
-                </div>
-                <div class="chart-container">
-                    <img class="chart-placeholder" id="chart-2" src="" alt="차트">
-                </div>
-                <div class="note-container">
-                    <div class="note-header">📙 투자 노트 (NOTE)</div>
-                    <div class="note-content" id="note-2">불러오는 중...</div>
-                </div>
-                <div class="archive-container">
-                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
-                    <div class="archive-list">
-                        <div class="archive-item">KODEXAI전력핵심설비</div>
-                        <div class="archive-item">PLUSK방산</div>
-                    </div>
-                </div>
-            </div>
+        
+        <div class="chart-container">
+            <img class="chart-placeholder" id="chart-test" src="" alt="차트 불러오는 중...">
         </div>
-
-        <div class="dashboard-page">
-            <div class="dashboard-card">
-                <h2 class="header-title">Happy Money</h2>
-                <div class="status-card">
-                    <div class="status-label">TIGER미국배당다우존스 현황</div>
-                    <div class="status-value" id="val-3">로딩 중...</div>
-                    <div class="status-change" id="chg-3">전일 대비 변동: 계산 중...</div>
-                </div>
-                <div class="alert-banner">
-                    <div class="alert-label" id="lbl-3">투자총액 대비 증감액</div>
-                    <div class="alert-value" id="gap-3">계산 중...</div>
-                </div>
-                <div class="chart-container">
-                    <img class="chart-placeholder" id="chart-3" src="" alt="차트">
-                </div>
-                <div class="note-container">
-                    <div class="note-header">📙 투자 노트 (NOTE)</div>
-                    <div class="note-content" id="note-3">불러오는 중...</div>
-                </div>
-                <div class="archive-container">
-                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
-                    <div class="archive-list">
-                        <div class="archive-item">KODEXAI전력핵심설비</div>
-                        <div class="archive-item">PLUSK방산</div>
-                    </div>
-                </div>
-            </div>
+        
+        <div class="note-container">
+            <div class="note-header">📙 투자 노트 (NOTE)</div>
+            <div class="note-content" id="note-test">불러오는 중...</div>
         </div>
-
-        <div class="dashboard-page">
-            <div class="dashboard-card">
-                <h2 class="header-title">Happy Money</h2>
-                <div class="status-card">
-                    <div class="status-label">KIWOOM미국양자컴퓨팅 현황</div>
-                    <div class="status-value" id="val-4">로딩 중...</div>
-                    <div class="status-change" id="chg-4">전일 대비 변동: 계산 중...</div>
-                </div>
-                <div class="alert-banner">
-                    <div class="alert-label" id="lbl-4">투자총액 대비 증감액</div>
-                    <div class="alert-value" id="gap-4">계산 중...</div>
-                </div>
-                <div class="chart-container">
-                    <img class="chart-placeholder" id="chart-4" src="" alt="차트">
-                </div>
-                <div class="note-container">
-                    <div class="note-header">📙 투자 노트 (NOTE)</div>
-                    <div class="note-content" id="note-4">불러오는 중...</div>
-                </div>
-                <div class="archive-container">
-                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
-                    <div class="archive-list">
-                        <div class="archive-item">KODEXAI전력핵심설비</div>
-                        <div class="archive-item">PLUSK방산</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="dashboard-page">
-            <div class="dashboard-card">
-                <h2 class="header-title">Happy Money</h2>
-                <div class="status-card">
-                    <div class="status-label">1Q미국우주항공테크 현황</div>
-                    <div class="status-value" id="val-5">로딩 중...</div>
-                    <div class="status-change" id="chg-5">전일 대비 변동: 계산 중...</div>
-                </div>
-                <div class="alert-banner">
-                    <div class="alert-label" id="lbl-5">투자총액 대비 증감액</div>
-                    <div class="alert-value" id="gap-5">계산 중...</div>
-                </div>
-                <div class="chart-container">
-                    <img class="chart-placeholder" id="chart-5" src="" alt="차트">
-                </div>
-                <div class="note-container">
-                    <div class="note-header">📙 투자 노트 (NOTE)</div>
-                    <div class="note-content" id="note-5">불러오는 중...</div>
-                </div>
-                <div class="archive-container">
-                    <div class="archive-header">📁 과거 투자 종목 (보관함)</div>
-                    <div class="archive-list">
-                        <div class="archive-item">KODEXAI전력핵심설비</div>
-                        <div class="archive-item">PLUSK방산</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </div>
 </div>
 
-<div class="bottom-nav" id="bottomNav">
-    <div class="dot active"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
-</div>
-
 <script>
-    // 🔗 [필수 수정] 기존에 정상 동작하던 스프레드시트 ID 값을 여기에 복사해 넣으세요!
+    // 🔗 여기에 실제 작동하던 구글 스프레드시트 ID를 꼭 넣어주세요!
     const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"; 
     const SHEET_NAME = "시트1"; 
     const API_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
-    // 스프레드시트 연동 핵심 로직
-    async function loadGoogleSheetData() {
+    async function loadSingleData() {
         if (SPREADSHEET_ID === "YOUR_SPREADSHEET_ID_HERE") {
-            console.warn("구글 스프레드시트 ID를 입력해야 데이터를 정상적으로 가져옵니다.");
+            document.getElementById("val-test").innerText = "시트 ID를 입력해주세요.";
             return;
         }
+
         try {
             const response = await fetch(API_URL);
             const text = await response.text();
             
+            // 구글 JSONP 데이터 정제
             const jsonStart = text.indexOf("{");
             const jsonEnd = text.lastIndexOf("}");
             const jsonData = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
-            const rows = jsonData.table.rows;
+            
+            // 첫 번째 행(타이거200IT) 데이터만 가져오기
+            const firstRow = jsonData.table.rows[0].c;
 
-            for (let i = 0; i < 6; i++) {
-                if (!rows[i]) break; 
-                
-                const row = rows[i].c;
-                
-                const currentVal = row[1] ? (row[1].f || row[1].v) : '0'; 
-                const changeVal  = row[2] ? row[2].v : '0 (0.00%)';       
-                const gapVal     = row[3] ? row[3].v : '0 (-0.00%)';      
-                const chartSrc   = row[4] ? row[4].v : '';                
-                const noteText   = row[5] ? row[5].v : '해당 종목에 등록된 투자 노트가 없습니다.'; 
-                const totalTargetInfo = row[6] ? row[6].v : '5.6 234,456원'; 
+            // 기존 매핑 규칙 그대로 적용 (B열~G열)
+            const currentVal = firstRow[1] ? (firstRow[1].f || firstRow[1].v) : '0'; 
+            const changeVal  = firstRow[2] ? firstRow[2].v : '0 (0.00%)';       
+            const gapVal     = firstRow[3] ? firstRow[3].v : '0 (-0.00%)';      
+            const chartSrc   = firstRow[4] ? firstRow[4].v : '';                
+            const noteText   = firstRow[5] ? firstRow[5].v : '등록된 노트가 없습니다.'; 
+            const totalInfo  = firstRow[6] ? firstRow[6].v : ''; 
 
-                document.getElementById(`val-${i}`).innerText = currentVal + " KRW";
-                document.getElementById(`chg-${i}`).innerText = "전일 대비 변동: " + changeVal;
-                document.getElementById(`gap-${i}`).innerText = gapVal;
-                document.getElementById(`chart-${i}`).src = chartSrc;
-                document.getElementById(`note-${i}`).innerText = noteText;
-                document.getElementById(`lbl-${i}`).innerText = `투자총액 (${totalTargetInfo}) 대비 증감액`;
+            // HTML 화면에 찍어주기
+            document.getElementById("val-test").innerText = currentVal + " KRW";
+            document.getElementById("chg-test").innerText = "전일 대비 변동: " + changeVal;
+            document.getElementById("gap-test").innerText = gapVal;
+            document.getElementById("chart-test").src = chartSrc;
+            document.getElementById("note-test").innerText = noteText;
+            if(totalInfo) {
+                document.getElementById("lbl-test").innerText = `투자총액 (${totalInfo}) 대비 증감액`;
             }
-            // 데이터 매핑 후 슬라이드 위치 리셋하여 UI 밀림 방지
-            updatePosition();
+
         } catch (error) {
-            console.error("데이터 동적 바인딩 로드 실패:", error);
+            console.error("데이터 로드 실패:", error);
+            document.getElementById("val-test").innerText = "오류 발생 (콘솔 확인)";
         }
     }
 
-    // 터치 인터랙션 스크립트
-    const track = document.getElementById('track');
-    const viewport = document.getElementById('viewport');
-    const dots = document.querySelectorAll('.dot');
-    
-    let currentIndex = 0;
-    const totalPages = 6;
-    let startX = 0;
-    let currentTranslate = 0;
-    let prevTranslate = 0;
-    let isDragging = false;
-
-    viewport.addEventListener('touchstart', touchStart);
-    viewport.addEventListener('touchmove', touchMove);
-    viewport.addEventListener('touchend', touchEnd);
-
-    function touchStart(event) {
-        startX = event.touches[0].clientX;
-        isDragging = true;
-        track.style.transition = 'none';
-    }
-
-    function touchMove(event) {
-        if (!isDragging) return;
-        const currentX = event.touches[0].clientX;
-        const diffX = currentX - startX;
-        currentTranslate = prevTranslate + diffX;
-        track.style.transform = `translateX(${currentTranslate}px)`;
-    }
-
-    function touchEnd() {
-        isDragging = false;
-        const movedBy = currentTranslate - prevTranslate;
-
-        if (movedBy < -50 && currentIndex < totalPages - 1) {
-            currentIndex++;
-        } else if (movedBy > 50 && currentIndex > 0) {
-            currentIndex--;
-        }
-
-        updatePosition();
-    }
-
-    function updatePosition() {
-        const width = viewport.clientWidth;
-        prevTranslate = -currentIndex * width;
-        
-        track.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
-        track.style.transform = `translateX(${prevTranslate}px)`;
-
-        dots.forEach((dot, index) => {
-            if (index === currentIndex) {
-                dot.classList.add('active');
-            } else {
-                dot.classList.remove('active');
-            }
-        });
-    }
-
-    window.addEventListener('resize', updatePosition);
-
-    // 브라우저 렌더링이 완전히 끝난 후 구글 데이터 안전하게 동적 호출
-    window.addEventListener('DOMContentLoaded', () => {
-        loadGoogleSheetData();
-    });
+    // 페이지 열리면 바로 실행
+    window.addEventListener('DOMContentLoaded', loadSingleData);
 </script>
 
 </body>
