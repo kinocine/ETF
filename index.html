@@ -172,8 +172,7 @@
             font-size: 14px;
             color: #713f12;
             line-height: 1.6;
-            white-space: pre-line; /* 줄바꿈 호환 */
-            font-weight: 500;
+            font-weight: 600;
         }
 
         .chart-container {
@@ -305,39 +304,25 @@
             });
     }
 
-    function parseCSVLine(line) {
-        const result = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-                result.push(current.trim());
-                current = '';
-            } else {
-                current += char;
-            }
-        }
-        result.push(current.trim());
-        return result.map(cell => cell.replace(/^"|"$/g, '').trim());
-    }
-
+    // 💡 [원칙 1] 셀 내부 줄바꿈이 없는 정돈된 데이터를 오직 한 줄(\n) 단위로만 분리하는 깨끗한 파서
     function processRawText(text) {
         const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-        globalRawRows = lines.map(line => parseCSVLine(line));
+        
+        globalRawRows = lines.map(line => {
+            return line.split(',').map(cell => {
+                return cell.replace(/^"|"$/g, '').trim(); // 앞뒤 따옴표 정돈
+            });
+        });
 
         if (globalRawRows.length === 0) return;
 
         buildStockCategorization();
     }
 
-    // 💡 종목 분류 및 투자 노트 추출 매핑 핵심 함수
+    // 💡 종목 분류 및 투자 노트 추출 매핑 함수
     function buildStockCategorization() {
         const headers = globalRawRows[0];
-        const noteRow = globalRawRows[1]; // 2행 (인덱스 1)을 고정 포인터로 설정
+        const noteRow = globalRawRows[1]; // 2행 (인덱스 1)을 투자 노트 행으로 완벽 고정
         
         activeStocks = [];
         pastStocks = [];
@@ -352,16 +337,16 @@
                     buyIdx = i + 1;
                 }
 
-                // [요구사항 2] 구글시트 최하단 셀에 딱 [0]이 입력된 것만 과거 보유 종목으로 필터링
+                // [원칙 3] 구글시트 최하단 셀에 딱 [0]이 입력된 것만 과거 보유 종목으로 정밀 필터링
                 let lastRowData = globalRawRows[globalRawRows.length - 1];
                 let latestCellValue = lastRowData[i] ? lastRowData[i].replace(/\s/g, '') : '';
                 
                 let isPastInvestment = (latestCellValue === '0');
 
-                // [요구사항 1] 각 종목별 2행(noteRow)에 있는 텍스트를 그대로 가져옴 (BUY열에 적혔든 종목열에 적혔든 2행 값 매핑)
+                // [원칙 1] 정돈된 2행(noteRow)에 있는 텍스트를 왜곡 없이 그대로 보존 추출
                 let extractedNote = "";
                 if (buyIdx !== -1 && noteRow[buyIdx]) {
-                    extractedNote = noteRow[buyIdx]; // BUY가 있을 경우 BUY열 2행 우선 추출
+                    extractedNote = noteRow[buyIdx]; // BUY열 2행 우선 추출
                 } else if (noteRow[i]) {
                     extractedNote = noteRow[i];      // BUY가 없는 고정 종목 등은 해당 종목열 2행 추출
                 }
@@ -422,7 +407,7 @@
         document.getElementById('prevBtn').disabled = (currentPageIndex === 0);
         document.getElementById('nextBtn').disabled = (currentPageIndex === activeStocks.length - 1);
 
-        // 투자 노트 화면 바인딩
+        // 투자 노트 화면 바인딩 (한 줄 문자열 그대로 출력)
         document.getElementById('noteContent').innerText = currentStock.note;
 
         renderDashboard(currentStock);
@@ -438,7 +423,7 @@
         let isStarted = false;   
         let lastCostDateStr = "-"; 
 
-        // [요구사항 3] 오염 원천 차단: i = 2(3행)부터 데이터를 읽어 들여 2행 텍스트 간섭을 차단
+        // [원칙 2] 루프를 무조건 i = 2 (3행)부터만 가동하여 2행 투자 노트 텍스트 간섭을 완벽히 격리 차단
         for (let i = 2; i < globalRawRows.length; i++) {
             const row = globalRawRows[i];
             const dateStr = row[0];
@@ -448,7 +433,7 @@
             const cleanVal = row[stock.valIdx] ? row[stock.valIdx].replace(/,/g, '').replace(/\s/g, '') : '';
             const rawVal = cleanVal ? parseFloat(cleanVal) : NaN;
 
-            // 순수 3행 이하 데이터 내에서만 매수 원가를 추출하고 누적 처리
+            // 순수 데이터 영역(3행 이하) 내에서만 매수 금액 추출 및 누적합산 처리
             if (stock.buyIdx !== -1) {
                 const rawCellText = row[stock.buyIdx] ? row[stock.buyIdx].trim() : '';
                 if (rawCellText !== '') {
@@ -509,6 +494,7 @@
             const evalCard = document.getElementById('evalCard');
             const diffCard = document.getElementById('diffCard');
 
+            // [원칙 4] 증감 결과에 따른 동적 UI 색상 적용 클래스 바인딩 보존
             if (diff >= 0) {
                 evalCard.className = "card"; 
                 diffCard.className = "card status-plus"; 
@@ -573,8 +559,9 @@
     }
 
     function loadDummyData() {
+        // [수정 조치 확인용 한 줄 포맷 더미데이터 세팅]
         const dummyText = `날짜,ETF,타이거200IT,BUY,KODEXIT,BUY,ACE 미국빅테크TOP7Plus,BUY,TIGER미국배당다우존스,BUY,KIWOOM미국양자컴퓨팅,BUY,1Q미국우주항공테크,BUY,KODEXAI전력핵심설비,PLUSK방산
-,,5월4일 119916*8좌=953570원\n6월1일 190563*26좌=4954645원 추가,,"5월12일\n74,285*13좌=965,705",,97140 (4좌),,5월27일 15677*56좌=877960원,,5월26일 18536*26좌=481950,,2026.6.4 매수신청\n14813*6좌=88880,,5.7? 963850 (16좌)\n26.5.26 882875 (16좌\n-80930),2026.5.11 74520 (1좌)\n-2320
+,,119196*8좌=953570원(5월4일)+190563*26좌=4954645원 추가,,74285*13좌=965705원(5월12일),,97140 (4좌),,5월27일 15677*56좌=877960원,,5월26일 18536*26좌=481950,,2026.6.4 매수신청 14813*6좌=88880,,5.7? 963850 (16좌) 26.5.26 882875 (16좌 -80930),2026.5.11 74520 (1좌) -2320
 4월1일,,,,,,,,,,,,,,,
 5월4일,,1119015,953570,,,,98180,97140,,,,,,,,
 5월5일,,1119015,,,,,,98000,,,,,,,,
