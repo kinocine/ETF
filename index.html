@@ -3,600 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy Money</title>
+    <title>Happy Money Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --bg-color: #f8fafc;
-            --card-bg: #ffffff;
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --border-color: #e2e8f0;
-            
-            /* 상태별 컬러 정의 */
-            --plus-bg: #fef9c3;      /* 흑자: 라이트 골드 계열 배경 */
-            --plus-text: #854d0e;    /* 흑자: 다크 골드 텍스트 */
-            --minus-bg: #dc2626;     /* 적자: 레드 박스 배경 */
-            --minus-text: #ffffff;   /* 적자: 흰색 텍스트 */
-            --note-bg: #fffde7;      /* 투자 노트 배경 */
-            --note-border: #fef08a;  /* 투자 노트 테두리 */
-            --history-bg: #f1f5f9;   /* 과거 투자 종목 배경 */
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            padding: 25px 15px;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        header {
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        header h1 {
-            font-size: 26px;
-            font-weight: 800;
-            color: var(--text-main);
-            letter-spacing: -0.5px;
-        }
-
-        .page-controller {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background-color: var(--card-bg);
-            padding: 10px 15px;
-            border-radius: 30px;
-            border: 1px solid var(--border-color);
-            margin: 0 auto 20px auto;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-        }
-
-        .nav-btn {
-            background: none;
-            border: none;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            color: var(--text-main);
-            padding: 5px 15px;
-            transition: all 0.2s ease;
-            user-select: none;
-        }
-
-        .nav-btn:hover:not(:disabled) {
-            transform: scale(1.2);
-            color: #000;
-        }
-
-        .nav-btn:disabled {
-            opacity: 0.2;
-            cursor: not-allowed;
-        }
-
-        .current-stock-title {
-            font-size: 18px;
-            font-weight: 800;
-            color: #0f172a;
-            text-align: center;
-            flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .dashboard-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            border-radius: 16px;
-            padding: 22px 20px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        .card .title {
-            font-size: 14px;
-            color: var(--text-muted);
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-
-        .card .value {
-            font-size: 28px;
-            font-weight: 800;
-            line-height: 1.2;
-        }
-
-        .card .sub-value {
-            font-size: 14px;
-            font-weight: 600;
-            margin-top: 6px;
-        }
-
-        /* 흑자/적자 동적 상태 클래스 */
-        .card.status-plus {
-            background-color: var(--plus-bg) !important;
-            border-color: #fef08a;
-        }
-        .card.status-plus .title { color: #a16207; }
-        .card.status-plus .value { color: var(--plus-text); }
-        .card.status-plus .sub-value { color: #a16207; }
-
-        .card.status-minus {
-            background-color: var(--minus-bg) !important;
-            border-color: var(--minus-bg);
-        }
-        .card.status-minus .title { color: rgba(255, 255, 255, 0.8); }
-        .card.status-minus .value { color: var(--minus-text); }
-        .card.status-minus .sub-value { color: rgba(255, 255, 255, 0.9); }
-
-        /* 투자 노트 스타일 */
-        .note-card {
-            background-color: var(--note-bg);
-            border: 1px solid var(--note-border);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
-        }
-        .note-card .note-title {
-            font-size: 15px;
-            font-weight: 800;
-            color: #854d0e;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .note-card .note-content {
-            font-size: 14px;
-            color: #713f12;
-            line-height: 1.6;
-            font-weight: 600;
-        }
-
-        .chart-container {
-            background-color: var(--card-bg);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            position: relative;
-            height: 350px;
-            width: 100%;
-            margin-bottom: 25px;
-        }
-
-        /* 과거 투자 종목 보관함 스타일 */
-        .history-card {
-            background-color: var(--history-bg);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid var(--border-color);
-        }
-        .history-card .history-title {
-            font-size: 15px;
-            font-weight: 800;
-            color: #475569;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .history-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .tag {
-            background-color: #ffffff;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-            color: #64748b;
-            border: 1px solid #cbd5e1;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .loading {
-            text-align: center;
-            font-size: 15px;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
+        body { font-family: 'Pretendard', sans-serif; background: #f8fafc; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; }
+        .chart-container { height: 300px; margin-top: 20px; }
+        .info { margin-bottom: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header>
-        <h1 id="dashboard-title">Happy Money</h1>
-    </header>
-
-    <div class="page-controller">
-        <button class="nav-btn" id="prevBtn" onclick="movePage(-1)" disabled>◀</button>
-        <div class="current-stock-title" id="stockTitle"><span class="loading">불러오는 중...</span></div>
-        <button class="nav-btn" id="nextBtn" onclick="movePage(1)" disabled>▶</button>
-    </div>
-
-    <div class="dashboard-grid">
-        <div class="card" id="evalCard">
-            <div class="title" id="evalTitle">종목 현황</div>
-            <div class="value" id="curValue">- 원</div>
-            <div class="sub-value" id="dayChange">전일 대비 변동: 계산 중...</div>
-        </div>
-        
-        <div class="card" id="diffCard">
-            <div class="title" id="diffTitle">투자총액 대비 증감액</div>
-            <div class="value" id="curDiff">- 원</div>
-            <div class="sub-value" id="curRate">- %</div>
-        </div>
-    </div>
-
-    <div class="note-card">
-        <div class="note-title">📦 투자 노트 (NOTE)</div>
-        <div class="note-content" id="noteContent">해당 종목에 등록된 투자 노트가 없습니다.</div>
-    </div>
-
+    <div class="info" id="stockTitle">데이터 로딩 중...</div>
     <div class="chart-container">
         <canvas id="assetChart"></canvas>
-    </div>
-
-    <div class="history-card">
-        <div class="history-title">🗑️ 과거 투자 종목 (보관함)</div>
-        <div class="history-tags" id="historyTags">
-            <span style="color:#94a3b8; font-size:13px;">과거 보유 종목이 없습니다.</span>
-        </div>
     </div>
 </div>
 
 <script>
-    // ⚠️ 구글 스프레드시트의 [웹에 게시 -> CSV] 주소를 아래에 넣으세요.
-    const SPREADSHEET_CSV_URL = ""; 
-
+    // [코드 전체 구조] 
     let globalRawRows = [];
-    let activeStocks = [];   // 현재 운용중인 종목
-    let pastStocks = [];     // 보관함 종목 ([0] 처리된 종목)
-    let currentPageIndex = 0;
     let currentChart = null;
 
-    window.addEventListener('DOMContentLoaded', () => {
-        if (SPREADSHEET_CSV_URL && SPREADSHEET_CSV_URL.startsWith("http")) {
-            fetchCSVData(SPREADSHEET_CSV_URL);
-        } else {
-            console.log("구글 시트 URL이 없어 기본 내장 데이터로 최신 시뮬레이션을 구동합니다.");
-            loadDummyData();
-        }
-    });
-
-    function fetchCSVData(url) {
-        fetch(url)
-            .then(response => response.text())
-            .then(text => {
-                processRawText(text);
-            })
-            .catch(err => {
-                alert("구글 시트 데이터를 가져오는데 실패했습니다. URL 혹은 권한을 확인하세요.");
-                console.error(err);
-            });
-    }
-
-    // 💡 [원칙 1] 셀 내부 줄바꿈이 없는 정돈된 데이터를 오직 한 줄(\n) 단위로만 분리하는 깨끗한 파서
+    // 1. 데이터 로드 및 전체 파싱
     function processRawText(text) {
-        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        globalRawRows = text.split('\n')
+            .map(line => line.split(',').map(c => c.replace(/^"|"$/g, '').trim()))
+            .filter(row => row.length > 1); // 빈 줄 제거
         
-        globalRawRows = lines.map(line => {
-            return line.split(',').map(cell => {
-                return cell.replace(/^"|"$/g, '').trim(); // 앞뒤 따옴표 정돈
-            });
-        });
-
-        if (globalRawRows.length === 0) return;
-
-        buildStockCategorization();
+        // 일단 첫 번째 종목(예시)으로 렌더링
+        renderDashboard(2); 
     }
 
-    // 💡 종목 분류 및 투자 노트 추출 매핑 함수
-    function buildStockCategorization() {
-        const headers = globalRawRows[0];
-        const noteRow = globalRawRows[1]; // 2행 (인덱스 1)을 투자 노트 행으로 완벽 고정
-        
-        activeStocks = [];
-        pastStocks = [];
+    // 2. 전체 데이터 누락 없는 루프 로직
+    function renderDashboard(stockIdx) {
+        const labels = [], evalValues = [], costValues = [];
+        let lastValidValue = 0, accumulatedCost = 0;
 
-        for (let i = 0; i < headers.length; i++) {
-            const label = headers[i];
-            
-            if (label && !['날짜', 'ETF', 'BUY'].includes(label)) {
-                
-                let buyIdx = -1;
-                if (i + 1 < headers.length && headers[i + 1] === 'BUY') {
-                    buyIdx = i + 1;
-                }
-
-                // [원칙 3] 구글시트 최하단 셀에 딱 [0]이 입력된 것만 과거 보유 종목으로 정밀 필터링
-                let lastRowData = globalRawRows[globalRawRows.length - 1];
-                let latestCellValue = lastRowData[i] ? lastRowData[i].replace(/\s/g, '') : '';
-                
-                let isPastInvestment = (latestCellValue === '0');
-
-                // [원칙 1] 정돈된 2행(noteRow)에 있는 텍스트를 왜곡 없이 그대로 보존 추출
-                let extractedNote = "";
-                if (buyIdx !== -1 && noteRow[buyIdx]) {
-                    extractedNote = noteRow[buyIdx]; // BUY열 2행 우선 추출
-                } else if (noteRow[i]) {
-                    extractedNote = noteRow[i];      // BUY가 없는 고정 종목 등은 해당 종목열 2행 추출
-                }
-
-                if (!extractedNote) {
-                    extractedNote = "등록된 투자 노트가 없습니다.";
-                }
-
-                const stockObj = {
-                    name: label,
-                    valIdx: i,
-                    buyIdx: buyIdx,
-                    note: extractedNote
-                };
-
-                if (isPastInvestment) {
-                    pastStocks.push(stockObj);
-                } else {
-                    activeStocks.push(stockObj);
-                }
-            }
-        }
-
-        renderPastStocksUI();
-
-        if (activeStocks.length > 0) {
-            currentPageIndex = 0;
-            updateDashboardPage();
-        } else {
-            document.getElementById('stockTitle').innerText = "활성 종목 없음";
-        }
-    }
-
-    function renderPastStocksUI() {
-        const historyContainer = document.getElementById('historyTags');
-        if (pastStocks.length === 0) {
-            historyContainer.innerHTML = `<span style="color:#94a3b8; font-size:13px;">과거 보유 종목이 없습니다.</span>`;
-            return;
-        }
-
-        historyContainer.innerHTML = pastStocks.map(stock => {
-            return `<span class="tag">📦 ${stock.name}</span>`;
-        }).join('');
-    }
-
-    function movePage(direction) {
-        const targetIndex = currentPageIndex + direction;
-        if (targetIndex >= 0 && targetIndex < activeStocks.length) {
-            currentPageIndex = targetIndex;
-            updateDashboardPage();
-        }
-    }
-
-    function updateDashboardPage() {
-        const currentStock = activeStocks[currentPageIndex];
-        document.getElementById('stockTitle').innerText = currentStock.name;
-
-        document.getElementById('prevBtn').disabled = (currentPageIndex === 0);
-        document.getElementById('nextBtn').disabled = (currentPageIndex === activeStocks.length - 1);
-
-        // 투자 노트 화면 바인딩 (한 줄 문자열 그대로 출력)
-        document.getElementById('noteContent').innerText = currentStock.note;
-
-        renderDashboard(currentStock);
-    }
-
-    function renderDashboard(stock) {
-        const labels = [];
-        const evalValues = [];
-        const costValues = [];
-        
-        let lastValidValue = 0;  
-        let accumulatedCost = 0; 
-        let isStarted = false;   
-        let lastCostDateStr = "-"; 
-
-        // [원칙 2] 루프를 무조건 i = 2 (3행)부터만 가동하여 2행 투자 노트 텍스트 간섭을 완벽히 격리 차단
+        // 3행(인덱스 2)부터 끝까지 전체 루프
         for (let i = 2; i < globalRawRows.length; i++) {
             const row = globalRawRows[i];
-            const dateStr = row[0];
+            
+            // 날짜가 없으면 무조건 건너뜀 (안전 장치)
+            if (!row[0]) continue;
 
-            if (!dateStr || (!dateStr.includes('월') && !dateStr.includes('.'))) continue;
-
-            const cleanVal = row[stock.valIdx] ? row[stock.valIdx].replace(/,/g, '').replace(/\s/g, '') : '';
-            const rawVal = cleanVal ? parseFloat(cleanVal) : NaN;
-
-            // 순수 데이터 영역(3행 이하) 내에서만 매수 금액 추출 및 누적합산 처리
-            if (stock.buyIdx !== -1) {
-                const rawCellText = row[stock.buyIdx] ? row[stock.buyIdx].trim() : '';
-                if (rawCellText !== '') {
-                    let cleanBuyText = rawCellText.replace(/[^0-9]/g, '');
-                    if (cleanBuyText !== '' && !isNaN(parseFloat(cleanBuyText))) {
-                        let parsedBuy = parseFloat(cleanBuyText);
-                        if (parsedBuy > 0) {
-                            accumulatedCost += parsedBuy;
-                            lastCostDateStr = dateStr.replace('월', '/').replace('일', '').replace(/\s/g, '');
-                        }
-                    }
-                }
-            } else {
-                if (stock.name.includes("전력핵심설비")) accumulatedCost = 963850;
-                if (stock.name.includes("방산")) accumulatedCost = 74520;
+            // 평가금액 파싱 (값이 있으면 갱신, 없으면 lastValidValue 유지)
+            const rawVal = row[stockIdx] ? row[stockIdx].replace(/[^0-9]/g, '') : '';
+            if (rawVal !== '') {
+                lastValidValue = parseFloat(rawVal);
             }
 
-            if (!isNaN(rawVal)) lastValidValue = rawVal;
-            let currentVal = isNaN(rawVal) ? lastValidValue : rawVal;
-
-            if (accumulatedCost > 0 || currentVal > 0) {
-                isStarted = true;
+            // 투자누적금 파싱 (BUY열이 있다고 가정: index + 1)
+            const buyVal = row[stockIdx + 1] ? row[stockIdx + 1].replace(/[^0-9]/g, '') : '';
+            if (buyVal !== '') {
+                accumulatedCost += parseFloat(buyVal);
             }
 
-            if (!isStarted) continue;
-
-            labels.push(dateStr);
-            evalValues.push(currentVal);
-            costValues.push(accumulatedCost); 
+            // [핵심] 모든 행에 대해 push
+            labels.push(row[0]);
+            evalValues.push(lastValidValue);
+            costValues.push(accumulatedCost);
         }
 
-        const lastIdx = evalValues.length - 1;
-        if (lastIdx >= 0) {
-            const latestVal = evalValues[lastIdx];
-            const latestCost = costValues[lastIdx]; 
-            
-            let dayDiff = 0;
-            let dayRate = 0;
-            if (lastIdx > 0) {
-                const prevVal = evalValues[lastIdx - 1];
-                dayDiff = latestVal - prevVal;
-                dayRate = prevVal > 0 ? (dayDiff / prevVal) * 100 : 0;
-            }
-
-            const diff = latestVal - latestCost;
-            const rate = latestCost > 0 ? (diff / latestCost) * 100 : 0;
-
-            document.getElementById('evalTitle').innerText = `${stock.name} 현황`;
-            document.getElementById('curValue').innerText = Math.round(latestVal).toLocaleString() + ' KRW';
-            
-            const dayChangeEl = document.getElementById('dayChange');
-            dayChangeEl.innerText = `전일 대비 변동: ${dayDiff >= 0 ? '+' : ''}${Math.round(dayDiff).toLocaleString()} (${dayDiff >= 0 ? '+' : ''}${dayRate.toFixed(2)}%)`;
-
-            document.getElementById('diffTitle').innerText = `투자총액 대비 (${lastCostDateStr} 매수원가합산 ${Math.round(latestCost).toLocaleString()}) 증감액`;
-            document.getElementById('curDiff').innerText = `${diff >= 0 ? '+' : ''}${Math.round(diff).toLocaleString()}`;
-            document.getElementById('curRate').innerText = `(${diff >= 0 ? '+' : ''}${rate.toFixed(2)}%)`;
-
-            const evalCard = document.getElementById('evalCard');
-            const diffCard = document.getElementById('diffCard');
-
-            // [원칙 4] 증감 결과에 따른 동적 UI 색상 적용 클래스 바인딩 보존
-            if (diff >= 0) {
-                evalCard.className = "card"; 
-                diffCard.className = "card status-plus"; 
-            } else {
-                evalCard.className = "card"; 
-                diffCard.className = "card status-minus"; 
-            }
-        }
-
-        drawChart(labels, evalValues, costValues, stock.name);
+        drawChart(labels, evalValues, costValues);
     }
 
-    function drawChart(labels, evalData, costData, stockName) {
+    function drawChart(labels, evalData, costData) {
         const ctx = document.getElementById('assetChart').getContext('2d');
-        if (currentChart) { currentChart.destroy(); }
-
+        if (currentChart) currentChart.destroy();
         currentChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [
-                    {
-                        label: '현재 평가 금액',
-                        data: evalData,
-                        borderColor: '#1abc9c',
-                        backgroundColor: 'rgba(26, 188, 156, 0.05)',
-                        borderWidth: 3,
-                        pointRadius: 4,
-                        fill: true,
-                        tension: 0.1
-                    },
-                    {
-                        label: '누적 투자금 (BUY 합계)',
-                        data: costData,
-                        borderColor: '#7f8c8d',
-                        borderWidth: 2,
-                        borderDash: [5, 5], 
-                        pointRadius: 2,
-                        fill: false,
-                        tension: 0
-                    }
+                    { label: '평가금액', data: evalData, borderColor: '#1abc9c', tension: 0.1 },
+                    { label: '누적투자', data: costData, borderColor: '#7f8c8d', borderDash: [5, 5] }
                 ]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'top', labels: { font: { size: 11, weight: 'bold' } } }
-                },
-                scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-                    y: {
-                        grid: { color: '#e2e8f0' },
-                        ticks: {
-                            font: { size: 10 },
-                            callback: function(value) { return Math.round(value).toLocaleString() + '원'; }
-                        }
-                    }
-                }
-            }
+            options: { responsive: true, maintainAspectRatio: false }
         });
     }
 
-    function loadDummyData() {
-        // [수정 조치 확인용 한 줄 포맷 더미데이터 세팅]
-        const dummyText = `날짜,ETF,타이거200IT,BUY,KODEXIT,BUY,ACE 미국빅테크TOP7Plus,BUY,TIGER미국배당다우존스,BUY,KIWOOM미국양자컴퓨팅,BUY,1Q미국우주항공테크,BUY,KODEXAI전력핵심설비,PLUSK방산
-,,119196*8좌=953570원(5월4일)+190563*26좌=4954645원 추가,,74285*13좌=965705원(5월12일),,97140 (4좌),,5월27일 15677*56좌=877960원,,5월26일 18536*26좌=481950,,2026.6.4 매수신청 14813*6좌=88880,,5.7? 963850 (16좌) 26.5.26 882875 (16좌 -80930),2026.5.11 74520 (1좌) -2320
-4월1일,,,,,,,,,,,,,,,
-5월4일,,1119015,953570,,,,98180,97140,,,,,,,,
-5월5일,,1119015,,,,,,98000,,,,,,,,
-5월6일,,1119015,,,,,,98000,,,,,,,,
-5월7일,,1208655,,,,,,97560,,,,,,,,963805,
-5월8일,,1226925,,,,,,99120,,,,,,,,996560,
-5월9일,,1223910,,,,,,100880,,,,,,,,1018960,
-5월10일,,1223910,,,,,,100880,,,,,,,,1018960,
-5월11일,,1223910,,,,,,100880,,,,,,,,1018960,74520
-5월12일,,1293705,,965705,965705,101420,,,,,,,,1006400,
-5월13일,,1289520,,930435,,101840,,,,,,,,961760,
-5월20일,,1222830,,890435,,103800,,,,,,,,811360,
-5월21일,,1222065,,785840,,103140,,,,,,,,894205,
-5월22일,,1368000,,985205,,103908,,,,,,,,868160,
-5월23일,,1391850,,998855,,105080,,,,,,,,881440,
-5월24일,,1391850,,998855,,105080,,,,,,,,881440,
-5월25일,,1391850,,998855,,105080,,,,877960,,481950,,,,881440,
-5월26일,,1391850,,998855,,105080,877960,877960,,481950,,,,881440,
-5월27일,,1471770,,1068860,,104320,,,,479440,,,,,,882875,
-5월28일,,1527795,,1103700,,103880,,873600,,460200,,,,,,
-5월29일,,1563615,,1129700,,104480,,869600,,453440,,,,,,
-5월30일,,1691460,,1199510,,106240,,870240,,483600,,,,,,
-6월1일,,6591580,4954645,,,,,,,,,,,,,,
-6월2일,,6785450,,1221090,,107360,,865200,,479570,,88880,88880,,,
-6월5일,,6036800,,1091090,,105560,,889280,,499200,,90570,,,,,
-6월6일,8712500,6036800,,1091090,,105560,,889280,,499200,,90570,,,,,
-6월8일,8712500,6036800,,1091090,,105560,,889280,,499200,,90570,,,,,
-6월9일,8003575,5499725,,989040,,102080,,877520,,451360,,83850,,,,,
-6월10일,8779740,6135325,,1115205,,100160,,868560,,474500,,84990,,,,,
-6월11일,8237705,5692925,,1047150,,,,872760,,443300,,81810,,,,,
-6월12일,8353655,5784975,,1066000,,,,874440,,447200,,82200,,0,`;
-        
+    // 테스트용 데이터 (실제 서비스시 fetch로 교체)
+    window.onload = () => {
+        const dummyText = `날짜,ETF,타이거200IT,BUY\n5월4일,,1119015,953570\n6월12일,,5784975,\n6월16일,,6402200,`;
         processRawText(dummyText);
-    }
+        document.getElementById('stockTitle').innerText = "타이거200IT 현황";
+    };
 </script>
-
 </body>
 </html>
