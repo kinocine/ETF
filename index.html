@@ -2,95 +2,86 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy Money Dashboard</title>
+    <title>Total & ETF Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Pretendard', sans-serif; background: #f8fafc; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; }
-        .chart-container { height: 300px; margin-top: 20px; }
-        .info { margin-bottom: 20px; font-weight: bold; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card { background: #fff; border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
+        .title { font-size: 14px; color: #64748b; font-weight: 600; margin-bottom: 10px; }
+        .value { font-size: 24px; font-weight: 800; }
+        .chart-container { background: #fff; border-radius: 16px; padding: 20px; height: 300px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="info" id="stockTitle">데이터 로딩 중...</div>
+    <div id="dashboard">
+        <div class="card">
+            <div class="title" id="dateDisplay">기준 날짜: -</div>
+            <div class="value" id="totalValue">Total: -</div>
+            <div class="value" id="etfValue" style="color:#0ea5e9;">ETF: -</div>
+        </div>
+    </div>
     <div class="chart-container">
-        <canvas id="assetChart"></canvas>
+        <canvas id="myChart"></canvas>
     </div>
 </div>
 
 <script>
-    // [코드 전체 구조] 
-    let globalRawRows = [];
-    let currentChart = null;
+    // 구글 시트 CSV URL 입력
+    const SPREADSHEET_CSV_URL = ""; 
 
-    // 1. 데이터 로드 및 전체 파싱
-    function processRawText(text) {
-        globalRawRows = text.split('\n')
-            .map(line => line.split(',').map(c => c.replace(/^"|"$/g, '').trim()))
-            .filter(row => row.length > 1); // 빈 줄 제거
-        
-        // 일단 첫 번째 종목(예시)으로 렌더링
-        renderDashboard(2); 
+    async function fetchData() {
+        try {
+            const response = await fetch(SPREADSHEET_CSV_URL);
+            const text = await response.text();
+            processData(text);
+        } catch (e) {
+            console.error("데이터 로드 실패", e);
+        }
     }
 
-    // 2. 전체 데이터 누락 없는 루프 로직
-    function renderDashboard(stockIdx) {
-        const labels = [], evalValues = [], costValues = [];
-        let lastValidValue = 0, accumulatedCost = 0;
+    function processData(text) {
+        const rows = text.split('\n').map(row => row.split(','));
+        const labels = [];
+        const totalData = [];
+        const etfData = [];
 
-        // 3행(인덱스 2)부터 끝까지 전체 루프
-        for (let i = 2; i < globalRawRows.length; i++) {
-            const row = globalRawRows[i];
-            
-            // 날짜가 없으면 무조건 건너뜀 (안전 장치)
-            if (!row[0]) continue;
+        // 3행(인덱스 2)부터 데이터 처리
+        for (let i = 2; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row[0] || row[0].trim() === "") continue; // 날짜 없으면 건너뜀
 
-            // 평가금액 파싱 (값이 있으면 갱신, 없으면 lastValidValue 유지)
-            const rawVal = row[stockIdx] ? row[stockIdx].replace(/[^0-9]/g, '') : '';
-            if (rawVal !== '') {
-                lastValidValue = parseFloat(rawVal);
-            }
-
-            // 투자누적금 파싱 (BUY열이 있다고 가정: index + 1)
-            const buyVal = row[stockIdx + 1] ? row[stockIdx + 1].replace(/[^0-9]/g, '') : '';
-            if (buyVal !== '') {
-                accumulatedCost += parseFloat(buyVal);
-            }
-
-            // [핵심] 모든 행에 대해 push
             labels.push(row[0]);
-            evalValues.push(lastValidValue);
-            costValues.push(accumulatedCost);
+            totalData.push(parseFloat(row[1]?.replace(/[^0-9]/g, '')) || 0);
+            etfData.push(parseFloat(row[2]?.replace(/[^0-9]/g, '')) || 0);
         }
 
-        drawChart(labels, evalValues, costValues);
+        renderUI(labels, totalData, etfData);
     }
 
-    function drawChart(labels, evalData, costData) {
-        const ctx = document.getElementById('assetChart').getContext('2d');
-        if (currentChart) currentChart.destroy();
-        currentChart = new Chart(ctx, {
+    function renderUI(labels, total, etf) {
+        const lastIdx = labels.length - 1;
+        document.getElementById('dateDisplay').innerText = `기준 날짜: ${labels[lastIdx]}`;
+        document.getElementById('totalValue').innerText = `Total: ${total[lastIdx].toLocaleString()} KRW`;
+        document.getElementById('etfValue').innerText = `ETF: ${etf[lastIdx].toLocaleString()} KRW`;
+
+        const ctx = document.getElementById('myChart').getContext('2d');
+        new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [
-                    { label: '평가금액', data: evalData, borderColor: '#1abc9c', tension: 0.1 },
-                    { label: '누적투자', data: costData, borderColor: '#7f8c8d', borderDash: [5, 5] }
+                    { label: 'Total', data: total, borderColor: '#1e293b' },
+                    { label: 'ETF', data: etf, borderColor: '#0ea5e9' }
                 ]
             },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
 
-    // 테스트용 데이터 (실제 서비스시 fetch로 교체)
-    window.onload = () => {
-        const dummyText = `날짜,ETF,타이거200IT,BUY\n5월4일,,1119015,953570\n6월12일,,5784975,\n6월16일,,6402200,`;
-        processRawText(dummyText);
-        document.getElementById('stockTitle').innerText = "타이거200IT 현황";
-    };
+    fetchData();
 </script>
 </body>
 </html>
