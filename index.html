@@ -8,15 +8,11 @@
     <style>
         body { font-family: 'Pretendard', sans-serif; background: #f8fafc; padding: 10px; color: #1e293b; margin: 0; }
         .container { width: 100%; max-width: 600px; margin: 0 auto; }
-        
-        /* 제목 스타일: 해피머니와 최종 날짜 노출 */
         .header-title { font-size: 20px; font-weight: 800; margin-bottom: 10px; display: flex; align-items: baseline; gap: 8px; }
         .update-date { font-size: 13px; color: #64748b; font-weight: normal; }
-
         .tab-menu { display: flex; flex-wrap: nowrap; gap: 2px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 5px; }
         .tab-btn { flex: 0 0 auto; padding: 4px 6px; border: 1px solid #e2e8f0; background: white; border-radius: 4px; cursor: pointer; font-size: 9px; font-weight: bold; white-space: nowrap; }
         .tab-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
-        
         .box-plus { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
         .box-minus { background: #dc2626; color: #ffffff; border: 1px solid #991b1b; }
         .card { background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
@@ -42,7 +38,6 @@
     const headers = ["Total", "ETF", "T200IT", "KODEX", "빅테크7", "배당다우", "양자컴", "우주항공"];
     const fullNames = ["Total", "ETF", "타이거200IT", "코덱시트", "ACE 미국빅테크TOP7Plus", "TIGER미국배당다우존스", "KIWOOM미국양자컴퓨팅", "1Q미국우주항공테크"];
 
-    // 쉼표 구분을 처리하는 파서 (메모 행 보존)
     function parseCSV(text) {
         return text.split('\n').map(row => {
             const cells = [];
@@ -66,22 +61,23 @@
     function render(rows) {
         const tabMenu = document.getElementById('tabMenu');
         const pagesContainer = document.getElementById('pagesContainer');
+        const allDataRows = rows.slice(3);
 
-        // 4행부터 시계열 데이터 추출
-        const dataRows = rows.slice(3);
-        const labels = dataRows.map(r => r[0]);
-
-        // 최종 업데이트 날짜 표시 (시계열 데이터 마지막 행의 첫 번째 컬럼)
-        if (labels.length > 0) {
-            document.getElementById('lastUpdateDate').innerText = `(${labels[labels.length - 1]})`;
-        }
+        const lastDate = allDataRows[allDataRows.length - 1][0];
+        document.getElementById('lastUpdateDate').innerText = `(${lastDate})`;
 
         headers.forEach((h, idx) => {
-            // 2행 메모 데이터: 쉼표 로직을 거치지 않고 직접 행에서 추출 (문자열 그대로)
             const memoText = rows[1][idx + 1] || "메모 없음";
             
-            const data = dataRows.map(r => parseFloat(r[idx + 1]?.replace(/,/g, '')) || 0);
-            const current = data[data.length - 1];
+            // 데이터 필터링: 값이 있는 행만 추출 (공백 무시)
+            const processedData = allDataRows
+                .map(r => ({ date: r[0], val: parseFloat(r[idx + 1]?.replace(/,/g, '')) }))
+                .filter(item => !isNaN(item.val));
+
+            const labels = processedData.map(item => item.date);
+            const data = processedData.map(item => item.val);
+            
+            const current = data[data.length - 1] || 0;
             const prev = data[data.length - 2] || 0;
             const diff = current - prev;
             const colorClass = diff >= 0 ? 'box-plus' : 'box-minus';
@@ -112,8 +108,15 @@
 
             new Chart(document.getElementById(`chart-${idx}`), {
                 type: 'line',
-                data: { labels: labels, datasets: [{ label: '금액', data: data, borderColor: '#0ea5e9', borderWidth: 2, pointRadius: 1, tension: 0.1 }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { ticks: { font: { size: 8 } } } }, plugins: { legend: { display: false } } }
+                data: { 
+                    labels: labels, 
+                    datasets: [{ label: '금액', data: data, borderColor: '#0ea5e9', borderWidth: 2, pointRadius: 2, tension: 0 }] 
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    scales: { y: { display: false }, x: { ticks: { font: { size: 8 } } } }, 
+                    plugins: { legend: { display: false } } 
+                }
             });
         });
     }
