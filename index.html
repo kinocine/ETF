@@ -2,69 +2,77 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>해피머니 대시보드</title>
+    <title>Kinocine 대시보드</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Pretendard', sans-serif; padding: 5px; background: #f8fafc; }
-        .date-header { font-size: 13px; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; }
+        body { font-family: 'Pretendard', sans-serif; padding: 5px; }
+        .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+        .tab { padding: 4px 8px; background: #e2e8f0; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .tab.active { background: #334155; color: white; }
         .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
-        .value { font-size: 18px; font-weight: 800; }
-        .diff { font-size: 13px; font-weight: bold; margin-top: 5px; }
-        .plus { color: #dc2626; } .minus { color: #0284c7; }
-        .note-card { background: #fffde7; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-<div id="header" class="date-header"></div>
+<div id="tabs" class="tabs"></div>
+<div id="header" style="font-size: 13px; font-weight: bold;"></div>
 <div class="card">
-    <div id="val" class="value"></div>
-    <div id="diff" class="diff"></div>
+    <div id="val" style="font-size: 18px; font-weight: 800;"></div>
+    <div id="diff" style="font-size: 13px; font-weight: bold;"></div>
 </div>
 <div style="height:200px;"><canvas id="chart"></canvas></div>
-<div id="memo" class="note-card"></div>
 
 <script>
     const URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?output=csv";
+    const sectors = [
+        { name: "Total", col: 1 }, { name: "ETF", col: 2 }, { name: "T200IT", col: 3 },
+        { name: "KODEX", col: 4 }, { name: "빅테크7", col: 5 }, { name: "배당다우", col: 6 },
+        { name: "양자컴", col: 7 }, { name: "우주항공", col: 8 }
+    ];
+
+    let currentSector = sectors[0];
+    let rowsData = [];
 
     async function init() {
         const text = await (await fetch(URL)).text();
-        const rows = text.split(/\r?\n/).map(r => r.split(','));
-        const memoText = rows[1][1] || "";
-        
-        // 4행(인덱스 3)부터 시작. 
-        // 1. A열(날짜)이 비어있지 않고 2. B열(Total)이 비어있지 않으며 3. 숫자인 행만 추출
-        const data = rows.slice(3).filter(r => 
-            r[0] && r[0].trim() !== "" && 
-            r[1] && r[1].trim() !== "" &&
-            !isNaN(parseFloat(r[1].replace(/,/g, '')))
-        ).map(r => ({
-            date: r[0].trim(),
-            value: parseFloat(r[1].replace(/,/g, ''))
-        }));
-        
-        const lastData = data[data.length - 1];
-        const prevData = data[data.length - 2];
-        const diff = lastData.value - (prevData ? prevData.value : 0);
+        rowsData = text.split(/\r?\n/).map(r => r.split(','));
+        const tabContainer = document.getElementById('tabs');
+        sectors.forEach(s => {
+            const btn = document.createElement('div');
+            btn.className = `tab ${s.name === currentSector.name ? 'active' : ''}`;
+            btn.innerText = s.name;
+            btn.onclick = () => { currentSector = s; document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); btn.classList.add('active'); update(); };
+            tabContainer.appendChild(btn);
+        });
+        update();
+    }
 
-        // 업데이트 날짜 형식: [Happy Money] 6월 17일
-        document.getElementById('header').innerText = `[Happy Money] ${lastData.date}`;
-        document.getElementById('val').innerText = `${lastData.value.toLocaleString()}원`;
-        document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
-        document.getElementById('diff').className = `diff ${diff >= 0 ? 'plus' : 'minus'}`;
-        document.getElementById('memo').innerText = memoText;
-
-        new Chart(document.getElementById('chart'), {
-            type: 'line',
-            data: { 
-                labels: data.map(d => d.date), 
-                datasets: [{ data: data.map(d => d.value), borderColor: '#0ea5e9', spanGaps: false, pointRadius: 2 }] 
-            },
-            options: { 
-                responsive: true, maintainAspectRatio: false,
-                scales: { y: { display: false }, x: { ticks: { font: { size: 9 } } } },
-                plugins: { legend: { display: false } }
+    function update() {
+        // [핵심] 데이터가 있는 행만 추출 (날짜(A열)와 선택 종목 열(col) 모두 값이 있을 때만)
+        const data = [];
+        for (let i = 3; i < rowsData.length; i++) {
+            const r = rowsData[i];
+            if (r[0] && r[currentSector.col] && r[0].trim() !== "" && r[currentSector.col].trim() !== "") {
+                data.push({ 
+                    date: r[0].trim(), 
+                    value: parseFloat(r[currentSector.col].trim()) 
+                });
             }
+        }
+
+        const last = data[data.length - 1];
+        const prev = data[data.length - 2];
+        const diff = last.value - (prev ? prev.value : 0);
+
+        document.getElementById('header').innerText = `[Happy Money] ${last.date}`;
+        document.getElementById('val').innerText = `${last.value.toLocaleString()}원`;
+        document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
+
+        if(window.myChart) window.myChart.destroy();
+        window.myChart = new Chart(document.getElementById('chart'), {
+            type: 'line',
+            data: { labels: data.map(d => d.date), datasets: [{ data: data.map(d => d.value), borderColor: '#0ea5e9' }] },
+            options: { responsive: true, maintainAspectRatio: false }
         });
     }
     init();
