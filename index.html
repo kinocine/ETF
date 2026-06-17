@@ -10,8 +10,8 @@
         .container { width: 100%; max-width: 600px; margin: 0 auto; }
         .box-plus { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
         .box-minus { background: #dc2626; color: #ffffff; border: 1px solid #991b1b; }
-        .tab-menu { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; }
-        .tab-btn { padding: 8px 12px; border: 1px solid #e2e8f0; background: white; border-radius: 8px; cursor: pointer; font-weight: bold; flex: 1 1 auto; white-space: nowrap; }
+        .tab-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 20px; }
+        .tab-btn { padding: 8px 5px; border: 1px solid #e2e8f0; background: white; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; }
         .tab-btn.active { background: #1e293b; color: white; }
         .card { background: white; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
         .value { font-size: 20px; font-weight: 800; word-break: break-all; }
@@ -60,10 +60,11 @@
             const btn = document.createElement('button');
             btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
             btn.innerText = h;
+            btn.dataset.target = `page-${idx}`;
             btn.onclick = (e) => {
                 document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.getElementById(`page-${idx}`).classList.remove('hidden');
+                document.getElementById(e.target.dataset.target).classList.remove('hidden');
                 e.target.classList.add('active');
             };
             tabMenu.appendChild(btn);
@@ -86,7 +87,15 @@
             new Chart(document.getElementById(`chart-${idx}`), {
                 type: 'line',
                 data: { labels: labels, datasets: [{ label: '금액', data: data, borderColor: '#0ea5e9', tension: 0.1 }] },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { display: false },
+                        x: { ticks: { font: { size: 10 } } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
             });
         });
     }
