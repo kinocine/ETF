@@ -23,12 +23,13 @@
         .note-card { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 16px; padding: 15px; margin-top: 15px; font-size: 14px; }
         .chart-container { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); height: 250px; }
         .hidden { display: none; }
+        .last-date { font-size: 16px; color: #64748b; font-weight: normal; margin-left: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Happy Money</h1>
+    <h1>Happy Money <span id="lastDate" class="last-date"></span></h1>
     <div id="tabMenu" class="tab-menu"></div>
     <div id="pagesContainer"></div>
 </div>
@@ -47,6 +48,10 @@
         const tabMenu = document.getElementById('tabMenu');
         const pagesContainer = document.getElementById('pagesContainer');
 
+        // 최신 날짜 표시
+        const labels = rows.slice(2).map(r => r[0]);
+        document.getElementById('lastDate').innerText = `(${labels[labels.length - 1]})`;
+
         headers.forEach((h, idx) => {
             let lastValid = 0;
             const data = rows.slice(2).map(r => {
@@ -54,7 +59,6 @@
                 if (!isNaN(val)) lastValid = val;
                 return lastValid;
             });
-            const labels = rows.slice(2).map(r => r[0]);
             
             const current = data[data.length - 1];
             const prev = data[data.length - 2] || current;
