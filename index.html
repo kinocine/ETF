@@ -2,79 +2,132 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Kinocine 대시보드</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>해피머니 - 대시보드</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Pretendard', sans-serif; padding: 5px; }
-        .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
-        .tab { padding: 4px 8px; background: #e2e8f0; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .tab.active { background: #334155; color: white; }
-        .card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
+        body { font-family: 'Pretendard', sans-serif; background: #f8fafc; padding: 10px; color: #1e293b; margin: 0; }
+        .container { width: 100%; max-width: 600px; margin: 0 auto; }
+        
+        /* 제목 스타일: 해피머니와 최종 날짜 노출 */
+        .header-title { font-size: 20px; font-weight: 800; margin-bottom: 10px; display: flex; align-items: baseline; gap: 8px; }
+        .update-date { font-size: 13px; color: #64748b; font-weight: normal; }
+
+        .tab-menu { display: flex; flex-wrap: nowrap; gap: 2px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 5px; }
+        .tab-btn { flex: 0 0 auto; padding: 4px 6px; border: 1px solid #e2e8f0; background: white; border-radius: 4px; cursor: pointer; font-size: 9px; font-weight: bold; white-space: nowrap; }
+        .tab-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
+        
+        .box-plus { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
+        .box-minus { background: #dc2626; color: #ffffff; border: 1px solid #991b1b; }
+        .card { background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
+        .value { font-size: 16px; font-weight: 800; }
+        .change-box { display: inline-block; padding: 3px 6px; border-radius: 4px; font-weight: bold; margin-top: 5px; font-size: 11px; }
+        .note-card { background: #fffde7; border: 1px solid #fef08a; border-radius: 12px; padding: 10px; font-size: 12px; }
+        .chart-container { background: white; border-radius: 12px; padding: 10px; border: 1px solid #e2e8f0; height: 180px; margin-bottom: 10px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
-<div id="tabs" class="tabs"></div>
-<div id="header" style="font-size: 13px; font-weight: bold;"></div>
-<div class="card">
-    <div id="val" style="font-size: 18px; font-weight: 800;"></div>
-    <div id="diff" style="font-size: 13px; font-weight: bold;"></div>
+<div class="container">
+    <div class="header-title">
+        해피머니 <span id="lastUpdateDate" class="update-date"></span>
+    </div>
+    <div id="tabMenu" class="tab-menu"></div>
+    <div id="pagesContainer"></div>
 </div>
-<div style="height:200px;"><canvas id="chart"></canvas></div>
 
 <script>
-    const URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?output=csv";
-    const sectors = [
-        { name: "Total", col: 1 }, { name: "ETF", col: 2 }, { name: "T200IT", col: 3 },
-        { name: "KODEX", col: 4 }, { name: "빅테크7", col: 5 }, { name: "배당다우", col: 6 },
-        { name: "양자컴", col: 7 }, { name: "우주항공", col: 8 }
-    ];
+    const SPREADSHEET_CSV_URL = ""; 
+    const headers = ["Total", "ETF", "T200IT", "KODEX", "빅테크7", "배당다우", "양자컴", "우주항공"];
+    const fullNames = ["Total", "ETF", "타이거200IT", "코덱시트", "ACE 미국빅테크TOP7Plus", "TIGER미국배당다우존스", "KIWOOM미국양자컴퓨팅", "1Q미국우주항공테크"];
 
-    let currentSector = sectors[0];
-    let rowsData = [];
+    // 쉼표 구분을 처리하는 파서 (메모 행 보존)
+    function parseCSV(text) {
+        return text.split('\n').map(row => {
+            const cells = [];
+            let cell = '';
+            let inQuotes = false;
+            for (let char of row) {
+                if (char === '"') inQuotes = !inQuotes;
+                else if (char === ',' && !inQuotes) { cells.push(cell); cell = ''; }
+                else cell += char;
+            }
+            cells.push(cell);
+            return cells;
+        });
+    }
 
     async function init() {
-        const text = await (await fetch(URL)).text();
-        rowsData = text.split(/\r?\n/).map(r => r.split(','));
-        const tabContainer = document.getElementById('tabs');
-        sectors.forEach(s => {
-            const btn = document.createElement('div');
-            btn.className = `tab ${s.name === currentSector.name ? 'active' : ''}`;
-            btn.innerText = s.name;
-            btn.onclick = () => { currentSector = s; document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); btn.classList.add('active'); update(); };
-            tabContainer.appendChild(btn);
-        });
-        update();
+        const text = SPREADSHEET_CSV_URL ? await (await fetch(SPREADSHEET_CSV_URL)).text() : getDummy();
+        render(parseCSV(text));
     }
 
-    function update() {
-        // [핵심] 데이터가 있는 행만 추출 (날짜(A열)와 선택 종목 열(col) 모두 값이 있을 때만)
-        const data = [];
-        for (let i = 3; i < rowsData.length; i++) {
-            const r = rowsData[i];
-            if (r[0] && r[currentSector.col] && r[0].trim() !== "" && r[currentSector.col].trim() !== "") {
-                data.push({ 
-                    date: r[0].trim(), 
-                    value: parseFloat(r[currentSector.col].trim()) 
-                });
-            }
+    function render(rows) {
+        const tabMenu = document.getElementById('tabMenu');
+        const pagesContainer = document.getElementById('pagesContainer');
+
+        // 4행부터 시계열 데이터 추출
+        const dataRows = rows.slice(3);
+        const labels = dataRows.map(r => r[0]);
+
+        // 최종 업데이트 날짜 표시 (시계열 데이터 마지막 행의 첫 번째 컬럼)
+        if (labels.length > 0) {
+            document.getElementById('lastUpdateDate').innerText = `(${labels[labels.length - 1]})`;
         }
 
-        const last = data[data.length - 1];
-        const prev = data[data.length - 2];
-        const diff = last.value - (prev ? prev.value : 0);
+        headers.forEach((h, idx) => {
+            // 2행 메모 데이터: 쉼표 로직을 거치지 않고 직접 행에서 추출 (문자열 그대로)
+            const memoText = rows[1][idx + 1] || "메모 없음";
+            
+            const data = dataRows.map(r => parseFloat(r[idx + 1]?.replace(/,/g, '')) || 0);
+            const current = data[data.length - 1];
+            const prev = data[data.length - 2] || 0;
+            const diff = current - prev;
+            const colorClass = diff >= 0 ? 'box-plus' : 'box-minus';
 
-        document.getElementById('header').innerText = `[Happy Money] ${last.date}`;
-        document.getElementById('val').innerText = `${last.value.toLocaleString()}원`;
-        document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
+            const btn = document.createElement('button');
+            btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+            btn.innerText = h;
+            btn.onclick = () => {
+                document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById(`page-${idx}`).classList.remove('hidden');
+                btn.classList.add('active');
+            };
+            tabMenu.appendChild(btn);
 
-        if(window.myChart) window.myChart.destroy();
-        window.myChart = new Chart(document.getElementById('chart'), {
-            type: 'line',
-            data: { labels: data.map(d => d.date), datasets: [{ data: data.map(d => d.value), borderColor: '#0ea5e9' }] },
-            options: { responsive: true, maintainAspectRatio: false }
+            const div = document.createElement('div');
+            div.id = `page-${idx}`;
+            div.className = `page ${idx === 0 ? '' : 'hidden'}`;
+            div.innerHTML = `
+                <div class="card">
+                    <div class="value">${fullNames[idx]}: ${current.toLocaleString()}원</div>
+                    <div class="change-box ${colorClass}">전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원</div>
+                </div>
+                <div class="chart-container"><canvas id="chart-${idx}"></canvas></div>
+                <div class="note-card"><strong>[메모]</strong> ${memoText}</div>
+            `;
+            pagesContainer.appendChild(div);
+
+            new Chart(document.getElementById(`chart-${idx}`), {
+                type: 'line',
+                data: { labels: labels, datasets: [{ label: '금액', data: data, borderColor: '#0ea5e9', borderWidth: 2, pointRadius: 1, tension: 0.1 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { ticks: { font: { size: 8 } } } }, plugins: { legend: { display: false } } }
+            });
         });
     }
+
+    function getDummy() {
+        return `날짜,Total,ETF,타이거200IT,KODEXIT,ACE 미국빅테크TOP7Plus,TIGER미국배당다우존스,KIWOOM미국양자컴퓨팅,1Q미국우주항공테크
+현황,이것도 못읽냐,뭐하냐,바로 해,123456,DJFDHKFL;KDAJGALK;,| ㅁㅎㄹ마와,ㅇㅁㅇ,ㅇㅎㄴㅇㅎ
+input,112852114,0,5908215,965705,98180,877960,481950,88880
+4월1일,112837440,0,1119015,965705,98180,0,0,0
+4월2일,112852114,0,1119015,965705,98180,0,0,0
+6월16일,114059467,9117540,6402200,1168700,99840,883400,480870,82530
+6월17일,114218256,9266705,6538175,1185340,100860,875840,483600,82890`;
+    }
+
     init();
 </script>
 </body>
