@@ -2,22 +2,24 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>해피머니 - 대시보드</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Pretendard', sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; }
-        .container { max-width: 600px; margin: 0 auto; }
+        body { font-family: 'Pretendard', sans-serif; background: #f8fafc; padding: 15px; color: #1e293b; margin: 0; }
+        .container { width: 100%; max-width: 600px; margin: 0 auto; }
         .box-plus { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
         .box-minus { background: #dc2626; color: #ffffff; border: 1px solid #991b1b; }
         .tab-menu { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; }
-        .tab-btn { padding: 8px 12px; border: 1px solid #e2e8f0; background: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .tab-btn { padding: 8px 12px; border: 1px solid #e2e8f0; background: white; border-radius: 8px; cursor: pointer; font-weight: bold; flex: 1 1 auto; white-space: nowrap; }
         .tab-btn.active { background: #1e293b; color: white; }
         .card { background: white; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
-        .value { font-size: 24px; font-weight: 800; }
-        .change-box { display: inline-block; padding: 5px 10px; border-radius: 8px; font-weight: bold; margin-top: 10px; }
-        .note-card { background: #fffde7; border: 1px solid #fef08a; border-radius: 16px; padding: 15px; margin-top: 15px; font-size: 14px; }
-        .chart-container { background: white; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0; height: 300px; margin-bottom: 15px; }
+        .value { font-size: 20px; font-weight: 800; word-break: break-all; }
+        .change-box { display: inline-block; padding: 5px 10px; border-radius: 8px; font-weight: bold; margin-top: 10px; font-size: 14px; }
+        .note-card { background: #fffde7; border: 1px solid #fef08a; border-radius: 16px; padding: 15px; margin-top: 15px; font-size: 14px; line-height: 1.5; }
+        .chart-container { background: white; border-radius: 16px; padding: 15px; border: 1px solid #e2e8f0; height: 250px; margin-bottom: 15px; position: relative; }
         .hidden { display: none; }
+        h1 { font-size: 22px; }
     </style>
 </head>
 <body>
@@ -46,7 +48,6 @@
 
         headers.forEach((h, idx) => {
             const memoText = rows[1][idx + 1] || "등록된 메모가 없습니다.";
-            // 3행 이후 데이터를 모두 사용
             const dataRows = rows.slice(2);
             const labels = dataRows.map(r => r[0]);
             const data = dataRows.map(r => parseFloat(r[idx + 1]?.replace(/,/g, '')) || 0);
