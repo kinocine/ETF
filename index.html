@@ -2,34 +2,28 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy Money - Full Dashboard</title>
+    <title>해피머니 - 대시보드</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { 
-            --bg-color: #f8fafc; --card-bg: #ffffff; --border-color: #e2e8f0;
-            --plus-bg: #fef9c3; --plus-text: #854d0e;
-            --minus-bg: #dc2626; --minus-text: #ffffff;
-            --note-bg: #fffde7; --note-border: #fef08a;
-        }
-        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); padding: 20px; color: #1e293b; }
+        body { font-family: 'Pretendard', sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; }
         .container { max-width: 600px; margin: 0 auto; }
+        .box-plus { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
+        .box-minus { background: #dc2626; color: #ffffff; border: 1px solid #991b1b; }
         .tab-menu { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; }
-        .tab-btn { padding: 8px 12px; border: 1px solid var(--border-color); background: white; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .tab-btn { padding: 8px 12px; border: 1px solid #e2e8f0; background: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .tab-btn.active { background: #1e293b; color: white; }
-        .card { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); margin-bottom: 15px; }
+        .card { background: white; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
         .value { font-size: 24px; font-weight: 800; }
-        .change-box { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 14px; margin-top: 5px; }
-        .note-card { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 16px; padding: 15px; margin-top: 15px; font-size: 14px; white-space: pre-line; }
-        .chart-container { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); height: 250px; }
+        .change-box { display: inline-block; padding: 5px 10px; border-radius: 8px; font-weight: bold; margin-top: 10px; }
+        .note-card { background: #fffde7; border: 1px solid #fef08a; border-radius: 16px; padding: 15px; margin-top: 15px; font-size: 14px; }
+        .chart-container { background: white; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0; height: 300px; margin-bottom: 15px; }
         .hidden { display: none; }
-        .last-date { font-size: 16px; color: #64748b; font-weight: normal; margin-left: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Happy Money <span id="lastDate" class="last-date"></span></h1>
+    <h1>해피머니 <span id="currentDate" style="font-size: 16px; color: #64748b;"></span></h1>
     <div id="tabMenu" class="tab-menu"></div>
     <div id="pagesContainer"></div>
 </div>
@@ -38,72 +32,70 @@
     const SPREADSHEET_CSV_URL = ""; 
     const headers = ["Total", "ETF", "타이거200IT", "KODEXIT", "ACE 미국빅테크TOP7Plus", "TIGER미국배당다우존스", "KIWOOM미국양자컴퓨팅", "1Q미국우주항공테크"];
     
+    document.getElementById('currentDate').innerText = `(${new Date().getMonth()+1}월 ${new Date().getDate()}일)`;
+
     async function init() {
         const text = SPREADSHEET_CSV_URL ? await (await fetch(SPREADSHEET_CSV_URL)).text() : getDummy();
-        renderFramework(text);
+        render(text);
     }
 
-    function renderFramework(text) {
-        const rows = text.split('\n').map(l => l.trim()).filter(l => l.length > 0).map(l => l.split(','));
+    function render(text) {
+        const rows = text.split('\n').map(l => l.split(','));
         const tabMenu = document.getElementById('tabMenu');
         const pagesContainer = document.getElementById('pagesContainer');
-        
-        // B2 셀의 내용을 메모로 고정 (현황 행의 2번째 열)
-        const memoText = rows[1][1] || "노트 없음";
-
-        const validDataRows = rows.slice(2).filter(r => r[1] !== "");
-        const labels = validDataRows.map(r => r[0]);
-        document.getElementById('lastDate').innerText = `(${labels[labels.length - 1]})`;
 
         headers.forEach((h, idx) => {
-            const data = validDataRows.map(r => parseFloat(r[idx + 1]?.replace(/,/g, '')));
+            const memoText = rows[1][idx + 1] || "등록된 메모가 없습니다.";
+            // 3행 이후 데이터를 모두 사용
+            const dataRows = rows.slice(2);
+            const labels = dataRows.map(r => r[0]);
+            const data = dataRows.map(r => parseFloat(r[idx + 1]?.replace(/,/g, '')) || 0);
+
             const current = data[data.length - 1];
-            const prev = data[data.length - 2] || current;
+            const prev = data[data.length - 2] || 0;
             const diff = current - prev;
-            const isPlus = diff >= 0;
+            const colorClass = diff >= 0 ? 'box-plus' : 'box-minus';
 
             const btn = document.createElement('button');
             btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
             btn.innerText = h;
-            btn.onclick = (e) => showPage(h, e.target);
+            btn.onclick = (e) => {
+                document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.getElementById(`page-${idx}`).classList.remove('hidden');
+                e.target.classList.add('active');
+            };
             tabMenu.appendChild(btn);
 
             const div = document.createElement('div');
-            div.id = `page-${h}`;
+            div.id = `page-${idx}`;
             div.className = `page ${idx === 0 ? '' : 'hidden'}`;
             div.innerHTML = `
                 <div class="card">
                     <div class="value">${h}: ${current.toLocaleString()} KRW</div>
-                    <div class="change-box" style="background:${isPlus ? 'var(--plus-bg)' : 'var(--minus-bg)'}; color:${isPlus ? 'var(--plus-text)' : 'var(--minus-text)'}">
-                        전일 대비: ${isPlus ? '+' : ''}${diff.toLocaleString()} KRW
+                    <div class="change-box ${colorClass}">
+                        전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()} KRW
                     </div>
                 </div>
-                <div class="chart-container"><canvas id="chart-${h}"></canvas></div>
-                <div class="note-card">${memoText}</div>
+                <div class="chart-container"><canvas id="chart-${idx}"></canvas></div>
+                <div class="note-card"><strong>[메모]</strong><br>${memoText}</div>
             `;
             pagesContainer.appendChild(div);
 
-            new Chart(document.getElementById(`chart-${h}`), {
+            new Chart(document.getElementById(`chart-${idx}`), {
                 type: 'line',
-                data: { labels, datasets: [{ label: '금액', data, borderColor: '#0ea5e9', tension: 0.1 }] },
+                data: { labels: labels, datasets: [{ label: '금액', data: data, borderColor: '#0ea5e9', tension: 0.1 }] },
                 options: { responsive: true, maintainAspectRatio: false }
             });
         });
     }
 
-    function showPage(name, target) {
-        document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(`page-${name}`).classList.remove('hidden');
-        target.classList.add('active');
-    }
-
     function getDummy() {
         return `날짜,Total,ETF,타이거200IT,KODEXIT,ACE 미국빅테크TOP7Plus,TIGER미국배당다우존스,KIWOOM미국양자컴퓨팅,1Q미국우주항공테크
-현황,*2026.5.4 매수\n*2026.5.27 추가,ETF,IT,코드,빅테크,배당,양자,우주
-4월1일,112837440,1191960,1119015,965705,98180,97140,877960,88880
-4월2일,112852114,1191960,1119015,965705,98180,97140,877960,88880
-6월16일,114059467,9266705,6538175,1185340,100860,875840,483600,82890
+현황,이것도 못읽냐,뭐하냐,바로 해,123456,DJFDHKFL;KDAJGALK;,| ㅁㅎㄹ마와,ㅇㅁㅇ,ㅇㅎㄴㅇㅎ
+4월1일,112837440,0,1119015,965705,98180,0,0,0
+4월2일,112852114,0,1119015,965705,98180,0,0,0
+6월16일,114059467,9117540,6402200,1168700,99840,883400,480870,82530
 6월17일,114218256,9266705,6538175,1185340,100860,875840,483600,82890`;
     }
 
