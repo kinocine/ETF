@@ -2,102 +2,92 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>해피머니 - 대시보드</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>해피머니 대시보드</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Pretendard', sans-serif; background: #f8fafc; padding: 10px; color: #1e293b; margin: 0; }
-        .container { width: 100%; max-width: 600px; margin: 0 auto; }
-        
-        /* 메뉴를 한 줄에 다 넣기 위해 극단적으로 축소 */
-        .tab-menu { display: flex; flex-wrap: nowrap; gap: 2px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 5px; }
-        .tab-btn { flex: 0 0 auto; padding: 4px 6px; border: 1px solid #e2e8f0; background: white; border-radius: 4px; cursor: pointer; font-size: 9px; font-weight: bold; white-space: nowrap; }
-        .tab-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
-        
-        .box-plus { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
-        .box-minus { background: #dc2626; color: #ffffff; border: 1px solid #991b1b; }
-        .card { background: white; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; margin-bottom: 10px; }
-        .value { font-size: 16px; font-weight: 800; }
-        .change-box { display: inline-block; padding: 3px 6px; border-radius: 4px; font-weight: bold; margin-top: 5px; font-size: 11px; }
-        .note-card { background: #fffde7; border: 1px solid #fef08a; border-radius: 12px; padding: 10px; font-size: 12px; }
-        .chart-container { background: white; border-radius: 12px; padding: 10px; border: 1px solid #e2e8f0; height: 180px; margin-bottom: 10px; }
+        body { font-family: 'Pretendard', sans-serif; padding: 5px; background: #f8fafc; margin: 0; }
+        .date-header { font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #1e293b; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .tab-menu { display: flex; flex-wrap: nowrap; gap: 2px; overflow-x: auto; margin-bottom: 8px; }
+        .tab-btn { flex: 0 0 auto; padding: 4px 6px; border: 1px solid #ccc; background: #fff; font-size: 9px; cursor: pointer; white-space: nowrap; }
+        .tab-btn.active { background: #333; color: #fff; }
+        .card { background: white; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 8px; }
+        .value { font-size: 15px; font-weight: 800; }
+        .diff { font-size: 11px; font-weight: bold; margin-top: 2px; }
+        .plus { color: #dc2626; } /* 흑자: 붉은색 */
+        .minus { color: #0284c7; } /* 적자: 푸른색 */
+        .note-card { background: #fffde7; padding: 8px; border-radius: 8px; font-size: 11px; margin-bottom: 10px; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div id="tabMenu" class="tab-menu"></div>
-    <div id="pagesContainer"></div>
-</div>
+<div id="lastUpdateDate" class="date-header"></div>
+<div id="tabMenu" class="tab-menu"></div>
+<div id="pagesContainer"></div>
 
 <script>
-    const SPREADSHEET_CSV_URL = ""; 
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?output=csv";
     const headers = ["Total", "ETF", "T200IT", "KODEX", "빅테크7", "배당다우", "양자컴", "우주항공"];
-    const fullNames = ["Total", "ETF", "타이거200IT", "코덱시트", "ACE 미국빅테크TOP7Plus", "TIGER미국배당다우존스", "KIWOOM미국양자컴퓨팅", "1Q미국우주항공테크"];
 
     async function init() {
-        const text = SPREADSHEET_CSV_URL ? await (await fetch(SPREADSHEET_CSV_URL)).text() : getDummy();
+        const text = await (await fetch(CSV_URL)).text();
         render(text);
     }
 
     function render(text) {
-        const rows = text.split('\n').map(l => l.split(','));
-        const tabMenu = document.getElementById('tabMenu');
-        const pagesContainer = document.getElementById('pagesContainer');
+        const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+        const row2Cells = lines[1].split(',');
+        const timeSeriesRows = lines.slice(3);
+
+        // 상단 날짜
+        document.getElementById('lastUpdateDate').innerText = `[해피머니] 최종 업데이트일자: ${timeSeriesRows[timeSeriesRows.length - 1].split(',')[0]}`;
 
         headers.forEach((h, idx) => {
-            const memoText = rows[1][idx + 1] || "메모 없음";
-            const dataRows = rows.slice(2);
-            const labels = dataRows.map(r => r[0]);
-            const data = dataRows.map(r => parseFloat(r[idx + 1]?.replace(/,/g, '')) || 0);
+            const memoText = row2Cells[idx + 1] || "";
+            const labels = timeSeriesRows.map(r => r.split(',')[0]);
+            const data = timeSeriesRows.map(r => parseFloat(r.split(',')[idx + 1]) || null);
 
-            const current = data[data.length - 1];
+            const current = data[data.length - 1] || 0;
             const prev = data[data.length - 2] || 0;
             const diff = current - prev;
-            const colorClass = diff >= 0 ? 'box-plus' : 'box-minus';
 
             const btn = document.createElement('button');
             btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
-            btn.innerText = h; // 축약된 이름 사용
+            btn.innerText = h;
             btn.onclick = () => {
                 document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.getElementById(`page-${idx}`).classList.remove('hidden');
                 btn.classList.add('active');
             };
-            tabMenu.appendChild(btn);
+            document.getElementById('tabMenu').appendChild(btn);
 
             const div = document.createElement('div');
             div.id = `page-${idx}`;
             div.className = `page ${idx === 0 ? '' : 'hidden'}`;
+            // [박스] 토탈 등 글자 제거, 줄바꿈, 컬러 구분 적용
             div.innerHTML = `
                 <div class="card">
-                    <div class="value">${fullNames[idx]}: ${current.toLocaleString()}원</div>
-                    <div class="change-box ${colorClass}">전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원</div>
+                    <div class="value">${current}원</div>
+                    <div class="diff ${diff >= 0 ? 'plus' : 'minus'}">전일 대비: ${diff >= 0 ? '+' : ''}${diff}원</div>
                 </div>
-                <div class="chart-container"><canvas id="chart-${idx}"></canvas></div>
-                <div class="note-card"><strong>[메모]</strong> ${memoText}</div>
+                <div style="height:150px;"><canvas id="chart-${idx}"></canvas></div>
+                <div class="note-card">${memoText}</div>
             `;
-            pagesContainer.appendChild(div);
+            document.getElementById('pagesContainer').appendChild(div);
 
             new Chart(document.getElementById(`chart-${idx}`), {
                 type: 'line',
-                data: { labels: labels, datasets: [{ label: '금액', data: data, borderColor: '#0ea5e9', borderWidth: 2, pointRadius: 1, tension: 0.1 }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { ticks: { font: { size: 8 } } } }, plugins: { legend: { display: false } } }
+                data: { labels: labels, datasets: [{ data: data, borderColor: '#0ea5e9', spanGaps: false }] },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    scales: { y: { ticks: { display: false } }, x: { ticks: { font: { size: 8 } } } },
+                    plugins: { legend: { display: false } }
+                }
             });
         });
     }
-
-    function getDummy() {
-        return `날짜,Total,ETF,타이거200IT,KODEXIT,ACE 미국빅테크TOP7Plus,TIGER미국배당다우존스,KIWOOM미국양자컴퓨팅,1Q미국우주항공테크
-현황,이것도 못읽냐,뭐하냐,바로 해,123456,DJFDHKFL;KDAJGALK;,| ㅁㅎㄹ마와,ㅇㅁㅇ,ㅇㅎㄴㅇㅎ
-4월1일,112837440,0,1119015,965705,98180,0,0,0
-4월2일,112852114,0,1119015,965705,98180,0,0,0
-6월16일,114059467,9117540,6402200,1168700,99840,883400,480870,82530
-6월17일,114218256,9266705,6538175,1185340,100860,875840,483600,82890`;
-    }
-
     init();
 </script>
 </body>
