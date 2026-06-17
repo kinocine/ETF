@@ -47,18 +47,16 @@
         const rows = text.split('\n').map(l => l.trim()).filter(l => l.length > 0).map(l => l.split(','));
         const tabMenu = document.getElementById('tabMenu');
         const pagesContainer = document.getElementById('pagesContainer');
+        
+        // B2 셀의 내용을 메모로 고정 (현황 행의 2번째 열)
+        const memoText = rows[1][1] || "노트 없음";
 
-        const labels = rows.slice(2).map(r => r[0]);
+        const validDataRows = rows.slice(2).filter(r => r[1] !== "");
+        const labels = validDataRows.map(r => r[0]);
         document.getElementById('lastDate').innerText = `(${labels[labels.length - 1]})`;
 
         headers.forEach((h, idx) => {
-            let lastValid = 0;
-            const data = rows.slice(2).map(r => {
-                const val = parseFloat(r[idx + 1]?.replace(/,/g, ''));
-                if (!isNaN(val)) lastValid = val;
-                return lastValid;
-            });
-            
+            const data = validDataRows.map(r => parseFloat(r[idx + 1]?.replace(/,/g, '')));
             const current = data[data.length - 1];
             const prev = data[data.length - 2] || current;
             const diff = current - prev;
@@ -73,7 +71,6 @@
             const div = document.createElement('div');
             div.id = `page-${h}`;
             div.className = `page ${idx === 0 ? '' : 'hidden'}`;
-            // ★ 아래 rows[1][idx + 1] 부분이 시트 2행(현황) 데이터를 가져오는 부분입니다.
             div.innerHTML = `
                 <div class="card">
                     <div class="value">${h}: ${current.toLocaleString()} KRW</div>
@@ -82,7 +79,7 @@
                     </div>
                 </div>
                 <div class="chart-container"><canvas id="chart-${h}"></canvas></div>
-                <div class="note-card">${rows[1][idx + 1] || "노트 없음"}</div>
+                <div class="note-card">${memoText}</div>
             `;
             pagesContainer.appendChild(div);
 
@@ -106,6 +103,7 @@
 현황,*2026.5.4 매수\n*2026.5.27 추가,ETF,IT,코드,빅테크,배당,양자,우주
 4월1일,112837440,1191960,1119015,965705,98180,97140,877960,88880
 4월2일,112852114,1191960,1119015,965705,98180,97140,877960,88880
+6월16일,114059467,9266705,6538175,1185340,100860,875840,483600,82890
 6월17일,114218256,9266705,6538175,1185340,100860,875840,483600,82890`;
     }
 
