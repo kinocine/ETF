@@ -48,7 +48,6 @@
         const pagesContainer = document.getElementById('pagesContainer');
 
         headers.forEach((h, idx) => {
-            // 데이터 가공: 빈 셀은 직전 값으로 채움
             let lastValid = 0;
             const data = rows.slice(2).map(r => {
                 const val = parseFloat(r[idx + 1]?.replace(/,/g, ''));
@@ -57,7 +56,6 @@
             });
             const labels = rows.slice(2).map(r => r[0]);
             
-            // 전일 대비 계산
             const current = data[data.length - 1];
             const prev = data[data.length - 2] || current;
             const diff = current - prev;
@@ -66,7 +64,7 @@
             const btn = document.createElement('button');
             btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
             btn.innerText = h;
-            btn.onclick = () => showPage(h);
+            btn.onclick = (e) => showPage(h, e.target);
             tabMenu.appendChild(btn);
 
             const div = document.createElement('div');
@@ -92,15 +90,22 @@
         });
     }
 
-    function showPage(name) {
+    function showPage(name, target) {
         document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(`page-${name}`).classList.remove('hidden');
-        event.target.classList.add('active');
+        target.classList.add('active');
     }
 
     function getDummy() {
-        return "날짜,Total,ETF,타이거200IT,KODEXIT,ACE 미국빅테크TOP7Plus,TIGER미국배당다우존스,KIWOOM미국양자컴퓨팅,1Q미국우주항공테크\n현황,합계,ETF,IT,코드,빅테크,배당,양자,우주\n4월1일,112837440,1191960,1119015,965705,98180,97140,877960,88880\n4월2일,112852114,,1119015,,,,";
+        return `날짜,Total,ETF,타이거200IT,KODEXIT,ACE 미국빅테크TOP7Plus,TIGER미국배당다우존스,KIWOOM미국양자컴퓨팅,1Q미국우주항공테크
+현황,합계,ETF,IT,코드,빅테크,배당,양자,우주
+4월1일,112837440,1191960,1119015,965705,98180,97140,877960,88880
+4월2일,112852114,1191960,1119015,965705,98180,97140,877960,88880
+5월30일,113000000,8000000,1691460,998855,106240,870240,877960,88880
+6월1일,113200000,8500000,6591580,998855,106240,870240,877960,88880
+6월13일,113509095,8576790,5947200,1106040,99060,877520,460330,86640
+6월17일,114218256,9266705,6538175,1185340,100860,875840,483600,82890`;
     }
 
     init();
