@@ -2,86 +2,108 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Total & ETF Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Money - Full Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Pretendard', sans-serif; background: #f8fafc; padding: 20px; }
+        :root { 
+            --bg-color: #f8fafc; --card-bg: #ffffff; --border-color: #e2e8f0;
+            --plus-bg: #fef9c3; --plus-text: #854d0e;
+            --minus-bg: #dc2626; --minus-text: #ffffff;
+            --note-bg: #fffde7; --note-border: #fef08a;
+        }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); padding: 20px; color: #1e293b; }
         .container { max-width: 600px; margin: 0 auto; }
-        .card { background: #fff; border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
-        .title { font-size: 14px; color: #64748b; font-weight: 600; margin-bottom: 10px; }
+        .tab-menu { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; }
+        .tab-btn { padding: 8px 12px; border: 1px solid var(--border-color); background: white; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .tab-btn.active { background: #1e293b; color: white; }
+        .card { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); margin-bottom: 15px; }
         .value { font-size: 24px; font-weight: 800; }
-        .chart-container { background: #fff; border-radius: 16px; padding: 20px; height: 300px; }
+        .change-box { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 14px; margin-top: 5px; }
+        .note-card { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 16px; padding: 15px; margin-top: 15px; font-size: 14px; }
+        .chart-container { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); height: 250px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="dashboard">
-        <div class="card">
-            <div class="title" id="dateDisplay">기준 날짜: -</div>
-            <div class="value" id="totalValue">Total: -</div>
-            <div class="value" id="etfValue" style="color:#0ea5e9;">ETF: -</div>
-        </div>
-    </div>
-    <div class="chart-container">
-        <canvas id="myChart"></canvas>
-    </div>
+    <h1>Happy Money</h1>
+    <div id="tabMenu" class="tab-menu"></div>
+    <div id="pagesContainer"></div>
 </div>
 
 <script>
-    // 구글 시트 CSV URL 입력
     const SPREADSHEET_CSV_URL = ""; 
-
-    async function fetchData() {
-        try {
-            const response = await fetch(SPREADSHEET_CSV_URL);
-            const text = await response.text();
-            processData(text);
-        } catch (e) {
-            console.error("데이터 로드 실패", e);
-        }
+    const headers = ["Total", "ETF", "타이거200IT", "KODEXIT", "ACE 미국빅테크TOP7Plus", "TIGER미국배당다우존스", "KIWOOM미국양자컴퓨팅", "1Q미국우주항공테크"];
+    
+    async function init() {
+        const text = SPREADSHEET_CSV_URL ? await (await fetch(SPREADSHEET_CSV_URL)).text() : getDummy();
+        renderFramework(text);
     }
 
-    function processData(text) {
-        const rows = text.split('\n').map(row => row.split(','));
-        const labels = [];
-        const totalData = [];
-        const etfData = [];
+    function renderFramework(text) {
+        const rows = text.split('\n').map(l => l.trim()).filter(l => l.length > 0).map(l => l.split(','));
+        const tabMenu = document.getElementById('tabMenu');
+        const pagesContainer = document.getElementById('pagesContainer');
 
-        // 3행(인덱스 2)부터 데이터 처리
-        for (let i = 2; i < rows.length; i++) {
-            const row = rows[i];
-            if (!row[0] || row[0].trim() === "") continue; // 날짜 없으면 건너뜀
+        headers.forEach((h, idx) => {
+            // 데이터 가공: 빈 셀은 직전 값으로 채움
+            let lastValid = 0;
+            const data = rows.slice(2).map(r => {
+                const val = parseFloat(r[idx + 1]?.replace(/,/g, ''));
+                if (!isNaN(val)) lastValid = val;
+                return lastValid;
+            });
+            const labels = rows.slice(2).map(r => r[0]);
+            
+            // 전일 대비 계산
+            const current = data[data.length - 1];
+            const prev = data[data.length - 2] || current;
+            const diff = current - prev;
+            const isPlus = diff >= 0;
 
-            labels.push(row[0]);
-            totalData.push(parseFloat(row[1]?.replace(/[^0-9]/g, '')) || 0);
-            etfData.push(parseFloat(row[2]?.replace(/[^0-9]/g, '')) || 0);
-        }
+            const btn = document.createElement('button');
+            btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+            btn.innerText = h;
+            btn.onclick = () => showPage(h);
+            tabMenu.appendChild(btn);
 
-        renderUI(labels, totalData, etfData);
-    }
+            const div = document.createElement('div');
+            div.id = `page-${h}`;
+            div.className = `page ${idx === 0 ? '' : 'hidden'}`;
+            div.innerHTML = `
+                <div class="card">
+                    <div class="value">${h}: ${current.toLocaleString()} KRW</div>
+                    <div class="change-box" style="background:${isPlus ? 'var(--plus-bg)' : 'var(--minus-bg)'}; color:${isPlus ? 'var(--plus-text)' : 'var(--minus-text)'}">
+                        전일 대비: ${isPlus ? '+' : ''}${diff.toLocaleString()} KRW
+                    </div>
+                </div>
+                <div class="chart-container"><canvas id="chart-${h}"></canvas></div>
+                <div class="note-card">${rows[1][idx + 1] || "노트 없음"}</div>
+            `;
+            pagesContainer.appendChild(div);
 
-    function renderUI(labels, total, etf) {
-        const lastIdx = labels.length - 1;
-        document.getElementById('dateDisplay').innerText = `기준 날짜: ${labels[lastIdx]}`;
-        document.getElementById('totalValue').innerText = `Total: ${total[lastIdx].toLocaleString()} KRW`;
-        document.getElementById('etfValue').innerText = `ETF: ${etf[lastIdx].toLocaleString()} KRW`;
-
-        const ctx = document.getElementById('myChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: 'Total', data: total, borderColor: '#1e293b' },
-                    { label: 'ETF', data: etf, borderColor: '#0ea5e9' }
-                ]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
+            new Chart(document.getElementById(`chart-${h}`), {
+                type: 'line',
+                data: { labels, datasets: [{ label: '금액', data, borderColor: '#0ea5e9', tension: 0.1 }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
         });
     }
 
-    fetchData();
+    function showPage(name) {
+        document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`page-${name}`).classList.remove('hidden');
+        event.target.classList.add('active');
+    }
+
+    function getDummy() {
+        return "날짜,Total,ETF,타이거200IT,KODEXIT,ACE 미국빅테크TOP7Plus,TIGER미국배당다우존스,KIWOOM미국양자컴퓨팅,1Q미국우주항공테크\n현황,합계,ETF,IT,코드,빅테크,배당,양자,우주\n4월1일,112837440,1191960,1119015,965705,98180,97140,877960,88880\n4월2일,112852114,,1119015,,,,";
+    }
+
+    init();
 </script>
 </body>
 </html>
