@@ -20,7 +20,7 @@
         .card { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); margin-bottom: 15px; }
         .value { font-size: 24px; font-weight: 800; }
         .change-box { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 14px; margin-top: 5px; }
-        .note-card { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 16px; padding: 15px; margin-top: 15px; font-size: 14px; }
+        .note-card { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 16px; padding: 15px; margin-top: 15px; font-size: 14px; white-space: pre-line; }
         .chart-container { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border-color); height: 250px; }
         .hidden { display: none; }
         .last-date { font-size: 16px; color: #64748b; font-weight: normal; margin-left: 10px; }
@@ -48,7 +48,6 @@
         const tabMenu = document.getElementById('tabMenu');
         const pagesContainer = document.getElementById('pagesContainer');
 
-        // 최신 날짜 표시
         const labels = rows.slice(2).map(r => r[0]);
         document.getElementById('lastDate').innerText = `(${labels[labels.length - 1]})`;
 
@@ -74,6 +73,7 @@
             const div = document.createElement('div');
             div.id = `page-${h}`;
             div.className = `page ${idx === 0 ? '' : 'hidden'}`;
+            // ★ 아래 rows[1][idx + 1] 부분이 시트 2행(현황) 데이터를 가져오는 부분입니다.
             div.innerHTML = `
                 <div class="card">
                     <div class="value">${h}: ${current.toLocaleString()} KRW</div>
@@ -103,12 +103,9 @@
 
     function getDummy() {
         return `날짜,Total,ETF,타이거200IT,KODEXIT,ACE 미국빅테크TOP7Plus,TIGER미국배당다우존스,KIWOOM미국양자컴퓨팅,1Q미국우주항공테크
-현황,합계,ETF,IT,코드,빅테크,배당,양자,우주
+현황,*2026.5.4 매수\n*2026.5.27 추가,ETF,IT,코드,빅테크,배당,양자,우주
 4월1일,112837440,1191960,1119015,965705,98180,97140,877960,88880
 4월2일,112852114,1191960,1119015,965705,98180,97140,877960,88880
-5월30일,113000000,8000000,1691460,998855,106240,870240,877960,88880
-6월1일,113200000,8500000,6591580,998855,106240,870240,877960,88880
-6월13일,113509095,8576790,5947200,1106040,99060,877520,460330,86640
 6월17일,114218256,9266705,6538175,1185340,100860,875840,483600,82890`;
     }
 
