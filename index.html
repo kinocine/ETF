@@ -2,29 +2,25 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kinocine 대시보드</title>
     <style>
-        body { font-family: 'Pretendard', sans-serif; padding: 5px; background: #f8fafc; margin: 0; }
+        body { font-family: sans-serif; padding: 2px; background: #f8fafc; margin: 0; }
+        #main-header { font-size: 11px; font-weight: bold; padding: 2px; background: #fff; border-bottom: 1px solid #e2e8f0; }
         
-        #main-header { font-size: 14px; font-weight: bold; margin-bottom: 5px; padding: 5px; background: #fff; border-bottom: 1px solid #e2e8f0; }
-
-        /* 탭 스타일 극단적 축소 및 한 줄 정렬 */
-        .tabs { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 5px; padding: 2px; }
+        .tabs { display: flex; flex-wrap: wrap; gap: 1px; padding: 1px; background: #e2e8f0; }
         .tab { 
-            padding: 2px 5px; 
-            background: #e2e8f0; 
-            border-radius: 2px; 
-            cursor: pointer; 
-            font-size: 9px; 
-            white-space: nowrap;
+            padding: 1px 3px; background: #fff; cursor: pointer; 
+            font-size: 9px; flex: 0 0 auto; text-align: center;
         }
         .tab.active { background: #334155; color: white; }
 
-        /* 카드 스타일 */
-        .card { background: white; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; margin-bottom: 5px; }
+        .card { background: white; padding: 4px; border: 1px solid #e2e8f0; margin: 1px 0; }
         .diff-plus { color: #dc2626; font-weight: bold; }
         .diff-minus { color: #0284c7; font-weight: bold; }
-        .memo-box { background: #fffde7; padding: 4px; font-size: 9px; border: 1px solid #fef08a; border-radius: 2px; color: #854d0e; }
+        
+        .box { background: #fffde7; padding: 2px; font-size: 8px; border: 1px solid #fef08a; margin-top: 1px; }
+        .past-box { background: #f1f5f9; padding: 2px; font-size: 8px; border: 1px solid #cbd5e1; margin-top: 1px; }
     </style>
 </head>
 <body>
@@ -33,29 +29,28 @@
 <div id="tabs" class="tabs"></div>
 
 <div class="card">
-    <div id="val" style="font-size: 18px; font-weight: 800; margin-bottom: 2px;">0원</div>
-    <div id="diff" style="font-size: 11px;">±0원</div>
+    <div id="val" style="font-size: 14px; font-weight: 800;">0원</div>
+    <div id="diff" style="font-size: 9px;">±0원</div>
 </div>
 
-<div id="memo" class="memo-box"></div>
+<div id="memo" class="box">메모 없음</div>
+<div class="past-box"><strong>[Past]</strong></div>
 
 <script>
     const URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?output=csv";
-    let rowsData = [];
-    let sectors = [];
-    let currentIdx = 0;
+    let rowsData = [], sectors = [], currentIdx = 0;
 
     async function init() {
         const text = await (await fetch(URL)).text();
         rowsData = text.split(/\r?\n/).map(r => r.split(','));
-        
         sectors = rowsData[0].map((name, i) => ({ name: name.trim(), col: i })).filter((_, i) => i > 0);
         
         const tabContainer = document.getElementById('tabs');
         sectors.forEach((s, idx) => {
             const btn = document.createElement('div');
             btn.className = `tab ${idx === 0 ? 'active' : ''}`;
-            btn.innerText = s.name;
+            // 앞 두 글자만 표시
+            btn.innerText = s.name.substring(0, 2);
             btn.onclick = () => { 
                 currentIdx = idx; 
                 document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); 
@@ -69,22 +64,15 @@
 
     function update() {
         const sector = sectors[currentIdx];
-        const memo = rowsData[1] ? rowsData[1][sector.col] : "";
-        
-        // 마지막 행(오늘)과 그 이전 행(어제) 데이터 추출
         const lastRow = rowsData[rowsData.length - 1];
         const prevRow = rowsData[rowsData.length - 2];
-        
-        const currentVal = parseFloat(lastRow[sector.col].trim().replace(/,/g, ''));
-        const prevVal = parseFloat(prevRow[sector.col].trim().replace(/,/g, ''));
-        const diff = currentVal - prevVal;
+        const val = parseFloat(lastRow[sector.col].trim().replace(/,/g, ''));
+        const diff = val - parseFloat(prevRow[sector.col].trim().replace(/,/g, ''));
 
-        document.getElementById('val').innerText = `${currentVal.toLocaleString()}원`;
-        document.getElementById('memo').innerText = memo || "메모 없음";
-        
-        const diffEl = document.getElementById('diff');
-        diffEl.innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
-        diffEl.className = diff >= 0 ? 'diff-plus' : 'diff-minus';
+        document.getElementById('val').innerText = `${val.toLocaleString()}원`;
+        document.getElementById('memo').innerText = rowsData[1][sector.col] || "메모 없음";
+        document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
+        document.getElementById('diff').className = diff >= 0 ? 'diff-plus' : 'diff-minus';
     }
     init();
 </script>
