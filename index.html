@@ -16,8 +16,6 @@
         .diff-plus { color: #dc2626; font-weight: bold; }
         .diff-minus { color: #0284c7; font-weight: bold; }
         .box { background: #fffde7; padding: 6px; font-size: 9px; border: 1px solid #fef08a; border-radius: 4px; margin-bottom: 8px; }
-        
-        /* END 페이지용 박스 */
         #end-page { display: none; background: #f1f5f9; padding: 10px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 8px; color: #334155; }
     </style>
 </head>
@@ -37,14 +35,14 @@
 
 <div id="end-page">
     <strong>[과거 거래 내역]</strong>
-    <div id="past-list" style="margin-top:5px;"></div>
+    <div id="past-list" style="margin-top:5px;">데이터를 불러오는 중...</div>
 </div>
 
 <script>
     const URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?output=csv";
-    const PAST_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2E6g5nL7VX8Xt2S6-VetZEiDLP4Bj9E3AvzyI/pub?output=csv";
+    const PAST_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?gid=509937340&single=true&output=csv";
     
-    let rowsData = [], sectors = [], currentIdx = 1; // 초기값을 1로 설정
+    let rowsData = [], sectors = [], currentIdx = 1;
 
     async function init() {
         const res = await fetch(URL);
@@ -62,7 +60,7 @@
         const endBtn = document.createElement('div');
         endBtn.className = 'tab end-tab';
         endBtn.innerText = '끝';
-        endBtn.onclick = () => { showEndPage(); };
+        endBtn.onclick = () => showEndPage();
         tabContainer.appendChild(endBtn);
 
         update();
@@ -83,26 +81,25 @@
         document.getElementById('tabs').appendChild(btn);
     }
 
+    // [완전 독립형 함수] 메인 데이터 로직에 영향을 주지 않음
     async function showEndPage() {
         document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
         document.querySelector('.tab.end-tab').classList.add('active');
         document.getElementById('main-content').style.display = 'none';
         document.getElementById('end-page').style.display = 'block';
 
-        const res = await fetch(PAST_URL);
-        const text = await res.text();
-        const rows = text.split(/\r?\n/).filter(r => r.trim() !== "");
-        const pastRow = rows[1].split(','); 
-        
         const pastList = document.getElementById('past-list');
-        pastList.innerHTML = "";
-        for (let col = 1; col <= 2; col++) {
-            if (pastRow[col] && pastRow[col].trim() !== "") {
-                const div = document.createElement('div');
-                div.style.marginBottom = "5px";
-                div.innerText = pastRow[col].trim();
-                pastList.appendChild(div);
-            }
+        try {
+            const res = await fetch(PAST_URL);
+            const text = await res.text();
+            
+            // 데이터 형식이 CSV가 아니면(HTML 등) 에러로 간주
+            if (text.includes("<!DOCTYPE html>")) throw new Error("웹 게시 주소가 잘못되었습니다.");
+            
+            const rows = text.split(/\r?\n/).filter(r => r.trim() !== "");
+            pastList.innerText = rows[1] || "데이터가 없습니다.";
+        } catch (e) {
+            pastList.innerText = "오류: " + e.message;
         }
     }
 
