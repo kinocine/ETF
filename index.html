@@ -5,22 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kinocine 대시보드</title>
     <style>
-        body { font-family: sans-serif; padding: 2px; background: #f8fafc; margin: 0; }
-        #main-header { font-size: 11px; font-weight: bold; padding: 2px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+        body { font-family: sans-serif; padding: 5px; background: #f8fafc; margin: 0; }
+        #main-header { font-size: 12px; font-weight: bold; margin-bottom: 8px; }
         
-        .tabs { display: flex; flex-wrap: wrap; gap: 1px; padding: 1px; background: #e2e8f0; }
+        /* 개별 둥근 박스 탭 */
+        .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
         .tab { 
-            padding: 1px 3px; background: #fff; cursor: pointer; 
-            font-size: 9px; flex: 0 0 auto; text-align: center;
+            padding: 4px 8px; background: #e2e8f0; border-radius: 12px; cursor: pointer; 
+            font-size: 9px; font-weight: bold; text-align: center;
         }
         .tab.active { background: #334155; color: white; }
 
-        .card { background: white; padding: 4px; border: 1px solid #e2e8f0; margin: 1px 0; }
+        .card { background: white; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 8px; }
+        .sector-title { font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 4px; }
         .diff-plus { color: #dc2626; font-weight: bold; }
         .diff-minus { color: #0284c7; font-weight: bold; }
         
-        .box { background: #fffde7; padding: 2px; font-size: 8px; border: 1px solid #fef08a; margin-top: 1px; }
-        .past-box { background: #f1f5f9; padding: 2px; font-size: 8px; border: 1px solid #cbd5e1; margin-top: 1px; }
+        .box { background: #fffde7; padding: 6px; font-size: 9px; border: 1px solid #fef08a; border-radius: 4px; margin-bottom: 8px; }
+        .past-box { background: #f1f5f9; padding: 6px; font-size: 9px; border: 1px solid #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -29,8 +31,9 @@
 <div id="tabs" class="tabs"></div>
 
 <div class="card">
-    <div id="val" style="font-size: 14px; font-weight: 800;">0원</div>
-    <div id="diff" style="font-size: 9px;">±0원</div>
+    <div id="sector-name" class="sector-title">종목명</div>
+    <div id="val" style="font-size: 20px; font-weight: 800;">0원</div>
+    <div id="diff" style="font-size: 12px;">±0원</div>
 </div>
 
 <div id="memo" class="box">메모 없음</div>
@@ -49,8 +52,7 @@
         sectors.forEach((s, idx) => {
             const btn = document.createElement('div');
             btn.className = `tab ${idx === 0 ? 'active' : ''}`;
-            // 앞 두 글자만 표시
-            btn.innerText = s.name.substring(0, 2);
+            btn.innerText = s.name.substring(0, 3);
             btn.onclick = () => { 
                 currentIdx = idx; 
                 document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); 
@@ -69,6 +71,7 @@
         const val = parseFloat(lastRow[sector.col].trim().replace(/,/g, ''));
         const diff = val - parseFloat(prevRow[sector.col].trim().replace(/,/g, ''));
 
+        document.getElementById('sector-name').innerText = sector.name; // 풀네임 표시
         document.getElementById('val').innerText = `${val.toLocaleString()}원`;
         document.getElementById('memo').innerText = rowsData[1][sector.col] || "메모 없음";
         document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
