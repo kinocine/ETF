@@ -3,65 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kinocine 대시보드</title>
+    <title>해피머니</title>
     <style>
         body { font-family: sans-serif; padding: 5px; background: #f8fafc; margin: 0; }
         #main-header { font-size: 12px; font-weight: bold; margin-bottom: 8px; }
-        
-        /* 개별 둥근 박스 탭 */
         .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
-        .tab { 
-            padding: 4px 8px; background: #e2e8f0; border-radius: 12px; cursor: pointer; 
-            font-size: 9px; font-weight: bold; text-align: center;
-        }
+        .tab { padding: 4px 8px; background: #e2e8f0; border-radius: 12px; cursor: pointer; font-size: 9px; font-weight: bold; text-align: center; }
         .tab.active { background: #334155; color: white; }
-
+        .tab.end-tab { background: #fee2e2; border: 1px solid #fecaca; } 
         .card { background: white; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 8px; }
         .sector-title { font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 4px; }
         .diff-plus { color: #dc2626; font-weight: bold; }
         .diff-minus { color: #0284c7; font-weight: bold; }
-        
         .box { background: #fffde7; padding: 6px; font-size: 9px; border: 1px solid #fef08a; border-radius: 4px; margin-bottom: 8px; }
-        .past-box { background: #f1f5f9; padding: 6px; font-size: 9px; border: 1px solid #cbd5e1; border-radius: 4px; }
+        
+        /* END 페이지용 박스 */
+        #end-page { display: none; background: #f1f5f9; padding: 10px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 8px; color: #334155; }
     </style>
 </head>
 <body>
 
-<div id="main-header">[Happy Money] 2026. 6. 18</div>
+<div id="main-header">[해피머니] 2026. 6. 18</div>
 <div id="tabs" class="tabs"></div>
 
-<div class="card">
-    <div id="sector-name" class="sector-title">종목명</div>
-    <div id="val" style="font-size: 20px; font-weight: 800;">0원</div>
-    <div id="diff" style="font-size: 12px;">±0원</div>
+<div id="main-content">
+    <div class="card">
+        <div id="sector-name" class="sector-title">종목명</div>
+        <div id="val" style="font-size: 20px; font-weight: 800;">0원</div>
+        <div id="diff" style="font-size: 12px;">±0원</div>
+    </div>
+    <div id="memo" class="box">메모 없음</div>
 </div>
 
-<div id="memo" class="box">메모 없음</div>
-<div class="past-box"><strong>[Past]</strong></div>
+<div id="end-page">
+    <strong>[과거 거래 내역]</strong>
+    <div id="past-list" style="margin-top:5px;"></div>
+</div>
 
 <script>
     const URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?output=csv";
+    // 과거 시트 링크 (2행 내용을 불러올 곳)
+    const PAST_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2E6g5nL7VX8Xt2S6-VetZEiDLP4Bj9E3AvzyI/pub?output=csv";
+    
     let rowsData = [], sectors = [], currentIdx = 0;
 
     async function init() {
-        const text = await (await fetch(URL)).text();
+        const res = await fetch(URL);
+        const text = await res.text();
         rowsData = text.split(/\r?\n/).map(r => r.split(','));
-        sectors = rowsData[0].map((name, i) => ({ name: name.trim(), col: i })).filter((_, i) => i > 0);
+        sectors = rowsData[0].map((name, i) => ({ name: name.trim(), col: i }))
+                            .filter(s => s.name && !s.name.includes('과거'));
         
         const tabContainer = document.getElementById('tabs');
         sectors.forEach((s, idx) => {
-            const btn = document.createElement('div');
-            btn.className = `tab ${idx === 0 ? 'active' : ''}`;
-            btn.innerText = s.name.substring(0, 3);
-            btn.onclick = () => { 
-                currentIdx = idx; 
-                document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); 
-                btn.classList.add('active'); 
-                update(); 
-            };
-            tabContainer.appendChild(btn);
+            if(idx === 0) return;
+            createTab(s, idx);
         });
+
+        const endBtn = document.createElement('div');
+        endBtn.className = 'tab end-tab';
+        endBtn.innerText = '끝';
+        endBtn.onclick = () => { showEndPage(); };
+        tabContainer.appendChild(endBtn);
+
         update();
+    }
+
+    function createTab(s, idx) {
+        const btn = document.createElement('div');
+        btn.className = `tab ${idx === 1 ? 'active' : ''}`;
+        btn.innerText = s.name.substring(0, 3);
+        btn.onclick = () => { 
+            currentIdx = idx; 
+            document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); 
+            btn.classList.add('active'); 
+            document.getElementById('main-content').style.display = 'block';
+            document.getElementById('end-page').style.display = 'none';
+            update(); 
+        };
+        document.getElementById('tabs').appendChild(btn);
+    }
+
+    async function showEndPage() {
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        document.querySelector('.tab.end-tab').classList.add('active');
+        document.getElementById('main-content').style.display = 'none';
+        document.getElementById('end-page').style.display = 'block';
+
+        // PAST_URL에서 데이터 가져오기
+        const res = await fetch(PAST_URL);
+        const text = await res.text();
+        const rows = text.split(/\r?\n/).filter(r => r.trim() !== "");
+        const pastRow = rows[1].split(','); // 2행 데이터
+        
+        const pastList = document.getElementById('past-list');
+        pastList.innerHTML = "";
+        for (let col = 1; col <= 2; col++) {
+            if (pastRow[col] && pastRow[col].trim() !== "") {
+                const div = document.createElement('div');
+                div.style.marginBottom = "5px";
+                div.innerText = pastRow[col].trim();
+                pastList.appendChild(div);
+            }
+        }
     }
 
     function update() {
@@ -71,7 +115,7 @@
         const val = parseFloat(lastRow[sector.col].trim().replace(/,/g, ''));
         const diff = val - parseFloat(prevRow[sector.col].trim().replace(/,/g, ''));
 
-        document.getElementById('sector-name').innerText = sector.name; // 풀네임 표시
+        document.getElementById('sector-name').innerText = sector.name;
         document.getElementById('val').innerText = `${val.toLocaleString()}원`;
         document.getElementById('memo').innerText = rowsData[1][sector.col] || "메모 없음";
         document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
