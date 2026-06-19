@@ -17,8 +17,8 @@
         .diff-minus { color: #0284c7; font-weight: bold; }
         .box { background: #fffde7; padding: 6px; font-size: 9px; border: 1px solid #fef08a; border-radius: 4px; margin-bottom: 8px; }
         
-        /* [END] 탭 콘텐츠 스타일 */
         .end-tab-content { background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 8px; }
+        .token-input { width: 100%; padding: 6px; font-size: 11px; box-sizing: border-box; margin-bottom: 8px; border: 1px solid #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -37,20 +37,25 @@
     </div>
 
     <div id="end-tab-view" class="end-tab-content" style="display: none;">
-        <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: bold; color: #333;">📊 실시간 데이터 입력 (Plain Text)</p>
+        <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; color: #333;">🔑 GitHub 개인 토큰 입력</p>
+        <input type="password" id="ghTokenInput" class="token-input" placeholder="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">
+
+        <p style="margin: 8px 0 4px 0; font-size: 12px; font-weight: bold; color: #333;">📊 실시간 데이터 입력 (Plain Text)</p>
         <textarea id="endMemoText" 
-                  placeholder="여기에 내용을 입력하세요..." 
+                  placeholder="토큰 입력 후 END 탭을 다시 누르거나, 파일 내용을 로드하세요..." 
                   style="width: 100%; height: 150px; box-sizing: border-box; font-family: monospace; font-size: 14px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; white-space: pre; overflow-x: auto;"></textarea>
         
         <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between;">
-            <span id="endMemoStatus" style="font-size: 11px; color: #666;">데이터를 불러옵니다.</span>
-            <button onclick="saveEndMemo()" style="padding: 6px 14px; background: #222; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">GitHub에 저장</button>
+            <span id="endMemoStatus" style="font-size: 11px; color: #666;">토큰을 입력하고 불러오기를 누르세요.</span>
+            <div>
+                <button onclick="loadEndMemo()" style="padding: 6px 10px; background: #475569; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; margin-right: 4px;">가져오기</button>
+                <button onclick="saveEndMemo()" style="padding: 6px 14px; background: #222; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">GitHub에 저장</button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // 날짜 자동 표시
     const today = new Date();
     document.getElementById('today-date').innerText = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()}`;
 
@@ -58,8 +63,7 @@
     
     let rowsData = [], sectors = [], currentIdx = 1;
 
-    // ⚠️ GitHub 연동 정보
-    const GH_TOKEN = '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'; 
+    // 고정된 개인 정보 설정
     const GH_OWNER = 'kinocine'; 
     const GH_REPO = 'end';       
     const GH_FILE_PATH = 'memo.txt'; 
@@ -81,25 +85,29 @@
             createTab(s, idx);
         });
 
-        // [END] 탭 추가 및 동적 이벤트 연결
         const endBtn = document.createElement('div');
         endBtn.className = 'tab end-tab';
         endBtn.innerText = 'END';
         endBtn.onclick = () => {
-            // 모든 탭 활성화 해제 후 END 탭만 활성화
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); 
             endBtn.classList.add('active');
             
-            // 화면 전환: 일반 구글시트 뷰는 숨기고, GitHub 메모장 뷰를 켬
             document.getElementById('data-view').style.display = 'none';
             document.getElementById('end-tab-view').style.display = 'block';
             
-            // 탭을 딱 누르는 순간에만 실시간으로 GitHub에서 텍스트 로드
-            loadEndMemo();
+            // 입력창에 토큰이 있을 때만 자동으로 불러오기 실행
+            if (document.getElementById('ghTokenInput').value) {
+                loadEndMemo();
+            }
         };
         tabContainer.appendChild(endBtn);
 
         update();
+        
+        // 브라우저가 토큰을 임시 기억하도록 브라우저 저장소에서 가져오기 (매번 치기 귀찮음 방지)
+        if (localStorage.getItem('my_gh_token')) {
+            document.getElementById('ghTokenInput').value = localStorage.getItem('my_gh_token');
+        }
     }
 
     function createTab(s, idx) {
@@ -111,7 +119,6 @@
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); 
             btn.classList.add('active'); 
             
-            // 화면 전환: 일반 구글시트 뷰를 켜고, GitHub 메모장 뷰는 숨김
             document.getElementById('data-view').style.display = 'block';
             document.getElementById('end-tab-view').style.display = 'none';
             
@@ -134,30 +141,38 @@
         document.getElementById('diff').className = diff >= 0 ? 'diff-plus' : 'diff-minus';
     }
 
-    // [GitHub 기능 1] END 탭 활성화 시 파일 내용 긁어오기
+    // [GitHub 기능 1] 토큰 값을 입력받아 실시간 파일 로드
     function loadEndMemo() {
-        document.getElementById('endMemoText').value = '';
+        const token = document.getElementById('ghTokenInput').value.trim();
+        if (!token) {
+            document.getElementById('endMemoStatus').style.color = 'red';
+            document.getElementById('endMemoStatus').innerText = "❌ 토큰을 먼저 입력해 주세요.";
+            return;
+        }
+        
+        // 입력한 토큰을 브라우저에 안전하게 임시 저장
+        localStorage.setItem('my_gh_token', token);
+
         document.getElementById('endMemoStatus').style.color = '#666';
-        document.getElementById('endMemoStatus').innerText = "🔄 GitHub 최신 데이터 동기화 중...";
+        document.getElementById('endMemoStatus').innerText = "🔄 GitHub 동기화 중...";
 
         fetch(ghApiUrl, {
-            headers: { "Authorization": `token ${GH_TOKEN}` }
+            headers: { "Authorization": `token ${token}` }
         })
         .then(res => {
             if (res.status === 404) {
                 currentFileSha = '';
                 document.getElementById('endMemoStatus').style.color = 'orange';
-                document.getElementById('endMemoStatus').innerText = "📝 신규 파일 상태입니다. 입력 후 저장하세요.";
+                document.getElementById('endMemoStatus').innerText = "📝 신규 파일 상태입니다.";
                 return null;
             }
-            if (!res.ok) throw new Error('API 연결 실패 혹은 토큰 권한 유실');
+            if (!res.ok) throw new Error('토큰 값이 틀렸거나 권한이 없습니다.');
             return res.json();
         })
         .then(data => {
             if (!data) return;
             currentFileSha = data.sha; 
             
-            // Base64 디코딩으로 줄바꿈 및 특수기호 완벽 복원
             const decoded = decodeURIComponent(atob(data.content.replace(/\s/g, '')).split('').map(function(c) {
                 return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
             }).join(''));
@@ -168,15 +183,23 @@
         })
         .catch(err => {
             document.getElementById('endMemoStatus').style.color = 'red';
-            document.getElementById('endMemoStatus').innerText = "❌ 동기화 실패: " + err.message;
+            document.getElementById('endMemoStatus').innerText = "❌ 실패: " + err.message;
         });
     }
 
-    // [GitHub 기능 2] 저장 버튼 누를 시 줄바꿈 보존하여 서버로 PUT
+    // [GitHub 기능 2] 입력된 토큰을 사용하여 파일 저장
     function saveEndMemo() {
+        const token = document.getElementById('ghTokenInput').value.trim();
         const content = document.getElementById('endMemoText').value;
+        
+        if (!token) {
+            document.getElementById('endMemoStatus').style.color = 'red';
+            document.getElementById('endMemoStatus').innerText = "❌ 토큰이 없습니다.";
+            return;
+        }
+
         document.getElementById('endMemoStatus').style.color = '#666';
-        document.getElementById('endMemoStatus').innerText = "⏳ GitHub에 데이터 기록 중...";
+        document.getElementById('endMemoStatus').innerText = "⏳ GitHub에 저장 중...";
 
         const base64Content = btoa(encodeURIComponent(content).replace(/%([0-9A-F]{2})/g, function(match, p1) {
             return String.fromCharCode(parseInt(p1, 16));
@@ -195,14 +218,14 @@
         fetch(ghApiUrl, {
             method: 'PUT',
             headers: {
-                "Authorization": `token ${GH_TOKEN}`,
+                "Authorization": `token ${token}`,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify(bodyData)
         })
         .then(res => {
             if (res.ok) return res.json();
-            throw new Error('전송 오류 (토큰 유효기간을 확인해 주세요)');
+            throw new Error('전송 실패. 토큰 만료 여부를 확인하세요.');
         })
         .then(data => {
             currentFileSha = data.content.sha; 
@@ -219,3 +242,4 @@
 </script>
 </body>
 </html>
+깃랩 토큰 두번째것. 넣고.. 손본것
