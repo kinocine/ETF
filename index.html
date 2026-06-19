@@ -16,44 +16,64 @@
         .diff-plus { color: #dc2626; font-weight: bold; }
         .diff-minus { color: #0284c7; font-weight: bold; }
         .box { background: #fffde7; padding: 6px; font-size: 9px; border: 1px solid #fef08a; border-radius: 4px; margin-bottom: 8px; }
-        #end-page { display: none; padding-top: 10px; }
-        .iframe-wrap { margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: white; }
+        
+        /* [END] 탭 콘텐츠 스타일 */
+        .end-tab-content { background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 8px; }
     </style>
 </head>
 <body>
 
-<div id="main-header">[해피머니] 2026. 6. 18</div>
+<div id="main-header">[해피머니] <span id="today-date"></span></div>
 <div id="tabs" class="tabs"></div>
 
 <div id="main-content">
-    <div class="card">
-        <div id="sector-name" class="sector-title">종목명</div>
-        <div id="val" style="font-size: 20px; font-weight: 800;">0원</div>
-        <div id="diff" style="font-size: 12px;">±0원</div>
+    <div id="data-view">
+        <div class="card">
+            <div id="sector-name" class="sector-title">종목명</div>
+            <div id="val" style="font-size: 20px; font-weight: 800;">0원</div>
+            <div id="diff" style="font-size: 12px;">±0원</div>
+        </div>
+        <div id="memo" class="box">메모 없음</div>
     </div>
-    <div id="memo" class="box">메모 없음</div>
-</div>
 
-<div id="end-page">
-    <div class="iframe-wrap">
-        <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSfvWq_58ccIryGHJu7krPpeCnpJr9QMC1f4nn9fBhtGC-ndRw/viewform?embedded=true" width="100%" height="400" frameborder="0">입력창 로딩 중...</iframe>
-    </div>
-    <div class="iframe-wrap">
-        <iframe src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pubhtml?gid=509937340&single=true" width="100%" height="300" frameborder="0">기록창 로딩 중...</iframe>
+    <div id="end-tab-view" class="end-tab-content" style="display: none;">
+        <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: bold; color: #333;">📊 실시간 데이터 입력 (Plain Text)</p>
+        <textarea id="endMemoText" 
+                  placeholder="여기에 내용을 입력하세요..." 
+                  style="width: 100%; height: 150px; box-sizing: border-box; font-family: monospace; font-size: 14px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; white-space: pre; overflow-x: auto;"></textarea>
+        
+        <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between;">
+            <span id="endMemoStatus" style="font-size: 11px; color: #666;">데이터를 불러옵니다.</span>
+            <button onclick="saveEndMemo()" style="padding: 6px 14px; background: #222; color: #fff; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold;">GitHub에 저장</button>
+        </div>
     </div>
 </div>
 
 <script>
+    // 날짜 자동 표시
+    const today = new Date();
+    document.getElementById('today-date').innerText = `${today.getFullYear()}. ${today.getMonth() + 1}. ${today.getDate()}`;
+
     const URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?output=csv";
     
     let rowsData = [], sectors = [], currentIdx = 1;
+
+    // ⚠️ GitHub 연동 정보
+    const GH_TOKEN = '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'; 
+    const GH_OWNER = 'kinocine'; 
+    const GH_REPO = 'end';       
+    const GH_FILE_PATH = 'memo.txt'; 
+    const GH_BRANCH = 'main';    
+    
+    const ghApiUrl = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE_PATH}`;
+    let currentFileSha = ''; 
 
     async function init() {
         const res = await fetch(URL);
         const text = await res.text();
         rowsData = text.split(/\r?\n/).map(r => r.split(','));
         sectors = rowsData[0].map((name, i) => ({ name: name.trim(), col: i }))
-                            .filter(s => s.name && !s.name.includes('과거'));
+                             .filter(s => s.name && !s.name.includes('과거'));
         
         const tabContainer = document.getElementById('tabs');
         sectors.forEach((s, idx) => {
@@ -61,10 +81,22 @@
             createTab(s, idx);
         });
 
+        // [END] 탭 추가 및 동적 이벤트 연결
         const endBtn = document.createElement('div');
         endBtn.className = 'tab end-tab';
-        endBtn.innerText = '끝';
-        endBtn.onclick = () => showEndPage();
+        endBtn.innerText = 'END';
+        endBtn.onclick = () => {
+            // 모든 탭 활성화 해제 후 END 탭만 활성화
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); 
+            endBtn.classList.add('active');
+            
+            // 화면 전환: 일반 구글시트 뷰는 숨기고, GitHub 메모장 뷰를 켬
+            document.getElementById('data-view').style.display = 'none';
+            document.getElementById('end-tab-view').style.display = 'block';
+            
+            // 탭을 딱 누르는 순간에만 실시간으로 GitHub에서 텍스트 로드
+            loadEndMemo();
+        };
         tabContainer.appendChild(endBtn);
 
         update();
@@ -76,20 +108,16 @@
         btn.innerText = s.name.substring(0, 3);
         btn.onclick = () => { 
             currentIdx = idx; 
-            document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); 
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); 
             btn.classList.add('active'); 
-            document.getElementById('main-content').style.display = 'block';
-            document.getElementById('end-page').style.display = 'none';
+            
+            // 화면 전환: 일반 구글시트 뷰를 켜고, GitHub 메모장 뷰는 숨김
+            document.getElementById('data-view').style.display = 'block';
+            document.getElementById('end-tab-view').style.display = 'none';
+            
             update(); 
         };
         document.getElementById('tabs').appendChild(btn);
-    }
-
-    function showEndPage() {
-        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-        document.querySelector('.tab.end-tab').classList.add('active');
-        document.getElementById('main-content').style.display = 'none';
-        document.getElementById('end-page').style.display = 'block';
     }
 
     function update() {
@@ -105,6 +133,88 @@
         document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
         document.getElementById('diff').className = diff >= 0 ? 'diff-plus' : 'diff-minus';
     }
+
+    // [GitHub 기능 1] END 탭 활성화 시 파일 내용 긁어오기
+    function loadEndMemo() {
+        document.getElementById('endMemoText').value = '';
+        document.getElementById('endMemoStatus').style.color = '#666';
+        document.getElementById('endMemoStatus').innerText = "🔄 GitHub 최신 데이터 동기화 중...";
+
+        fetch(ghApiUrl, {
+            headers: { "Authorization": `token ${GH_TOKEN}` }
+        })
+        .then(res => {
+            if (res.status === 404) {
+                currentFileSha = '';
+                document.getElementById('endMemoStatus').style.color = 'orange';
+                document.getElementById('endMemoStatus').innerText = "📝 신규 파일 상태입니다. 입력 후 저장하세요.";
+                return null;
+            }
+            if (!res.ok) throw new Error('API 연결 실패 혹은 토큰 권한 유실');
+            return res.json();
+        })
+        .then(data => {
+            if (!data) return;
+            currentFileSha = data.sha; 
+            
+            // Base64 디코딩으로 줄바꿈 및 특수기호 완벽 복원
+            const decoded = decodeURIComponent(atob(data.content.replace(/\s/g, '')).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            
+            document.getElementById('endMemoText').value = decoded;
+            document.getElementById('endMemoStatus').style.color = 'green';
+            document.getElementById('endMemoStatus').innerText = "✅ 최신 데이터를 가져왔습니다.";
+        })
+        .catch(err => {
+            document.getElementById('endMemoStatus').style.color = 'red';
+            document.getElementById('endMemoStatus').innerText = "❌ 동기화 실패: " + err.message;
+        });
+    }
+
+    // [GitHub 기능 2] 저장 버튼 누를 시 줄바꿈 보존하여 서버로 PUT
+    function saveEndMemo() {
+        const content = document.getElementById('endMemoText').value;
+        document.getElementById('endMemoStatus').style.color = '#666';
+        document.getElementById('endMemoStatus').innerText = "⏳ GitHub에 데이터 기록 중...";
+
+        const base64Content = btoa(encodeURIComponent(content).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+            return String.fromCharCode(parseInt(p1, 16));
+        }));
+
+        const bodyData = {
+            branch: GH_BRANCH,
+            message: "Dashboard [END] Tab에서 메모 수정",
+            content: base64Content
+        };
+        
+        if (currentFileSha) {
+            bodyData.sha = currentFileSha;
+        }
+
+        fetch(ghApiUrl, {
+            method: 'PUT',
+            headers: {
+                "Authorization": `token ${GH_TOKEN}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(bodyData)
+        })
+        .then(res => {
+            if (res.ok) return res.json();
+            throw new Error('전송 오류 (토큰 유효기간을 확인해 주세요)');
+        })
+        .then(data => {
+            currentFileSha = data.content.sha; 
+            document.getElementById('endMemoStatus').style.color = 'blue';
+            document.getElementById('endMemoStatus').innerText = "🚀 GitHub 저장 완료! (줄바꿈 보존)";
+        })
+        .catch(err => {
+            document.getElementById('endMemoStatus').style.color = 'red';
+            document.getElementById('endMemoStatus').innerText = "❌ 오류: " + err.message;
+        });
+    }
+
     init();
 </script>
 </body>
