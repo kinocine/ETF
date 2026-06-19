@@ -36,10 +36,11 @@
     </div>
 
     <div id="end-tab-view" class="end-tab-content" style="display: none;">
-        <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: bold; color: #333;">📝 개인 메모장 (자동 저장)</p>
+        <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: bold; color: #333;">📊 구글 시트 종합 메모 내역 (A2 셀 연동)</p>
         <textarea id="endMemoText" 
-                  placeholder="여기에 자유롭게 실시간 메모를 작성하세요. 타이핑 즉시 기기에 자동 저장됩니다..." 
-                  style="width: 100%; height: 220px; box-sizing: border-box; font-family: monospace; font-size: 14px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; white-space: pre; overflow-x: auto; background-color: #fff; color: #222;"></textarea>
+                  placeholder="구글 시트에서 메모를 불러오는 중입니다..." 
+                  readonly
+                  style="width: 100%; height: 220px; box-sizing: border-box; font-family: monospace; font-size: 14px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; white-space: pre; overflow-x: auto; background-color: #fafafa; color: #222;"></textarea>
     </div>
 </div>
 
@@ -52,7 +53,9 @@
     let rowsData = [], sectors = [], currentIdx = 1;
 
     async function init() {
-        const res = await fetch(URL);
+        // 모바일 브라우저 캐시 방지를 위해 실시간 시간값 파라미터 강제 추가하여 요청
+        const cacheBusterUrl = URL + "&t=" + new Date().getTime();
+        const res = await fetch(cacheBusterUrl);
         const text = await res.text();
         rowsData = text.split(/\r?\n/).map(r => r.split(','));
         sectors = rowsData[0].map((name, i) => ({ name: name.trim(), col: i }))
@@ -64,7 +67,7 @@
             createTab(s, idx);
         });
 
-        // END 탭 생성
+        // END 탭 생성 및 클릭 이벤트 매핑
         const endBtn = document.createElement('div');
         endBtn.className = 'tab end-tab';
         endBtn.innerText = 'END';
@@ -75,24 +78,13 @@
             document.getElementById('data-view').style.display = 'none';
             document.getElementById('end-tab-view').style.display = 'block';
             
-            // 탭 열 때 저장된 메모 데이터 화면에 뿌려주기
-            if (localStorage.getItem('local_end_memo')) {
-                document.getElementById('endMemoText').value = localStorage.getItem('local_end_memo');
-            }
+            // 시트의 2행 1열 (A2 셀) 값을 파싱하여 텍스트창에 즉각 출력
+            const totalMemo = rowsData[1][0] ? rowsData[1][0].trim() : "종합 메모가 비어 있습니다.";
+            document.getElementById('endMemoText').value = totalMemo;
         };
         tabContainer.appendChild(endBtn);
 
         update();
-
-        // 브라우저 갱신 시 기존 작성 데이터 불러오기 안착
-        if (localStorage.getItem('local_end_memo')) {
-            document.getElementById('endMemoText').value = localStorage.getItem('local_end_memo');
-        }
-
-        // 메모장 글자 입력할 때마다 실시간으로 브라우저에 강제 저장 (버튼 클릭 불필요)
-        document.getElementById('endMemoText').addEventListener('input', function() {
-            localStorage.setItem('local_end_memo', this.value);
-        });
     }
 
     function createTab(s, idx) {
