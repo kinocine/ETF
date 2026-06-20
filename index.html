@@ -13,9 +13,16 @@
         .tab.end-tab { background: #fee2e2; border: 1px solid #fecaca; } 
         .card { background: white; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 8px; }
         .sector-title { font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 4px; }
+        
+        /* 기존 텍스트 색상 유지 및 박스 스타일 추가 수용 */
         .diff-plus { color: #dc2626; font-weight: bold; }
         .diff-minus { color: #0284c7; font-weight: bold; }
         .box { background: #fffde7; padding: 6px; font-size: 9px; border: 1px solid #fef08a; border-radius: 4px; margin-bottom: 8px; }
+        
+        /* 흑자(골드)/적자(레드) 박스 공통 및 개별 스타일 */
+        .result-box { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-top: 4px; }
+        .box-gold { background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
+        .box-red { background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
         
         .end-tab-content { background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 8px; }
     </style>
@@ -29,8 +36,9 @@
     <div id="data-view">
         <div class="card">
             <div id="sector-name" class="sector-title">종목명</div>
-            <div id="val" style="font-size: 20px; font-weight: 800;">0원</div>
-            <div id="diff" style="font-size: 12px;">±0원</div>
+            <div id="val" style="font-size: 20px; font-weight: 800; margin-bottom: 4px;">0원</div>
+            <div><div id="diff">전일 대비: ±0원</div></div>
+            <div><div id="invest-diff">투자대비: ±0원</div></div>
         </div>
         <div id="memo" class="box">메모 없음</div>
     </div>
@@ -108,14 +116,26 @@
         const sector = sectors[currentIdx];
         const lastRow = rowsData[rowsData.length - 1];
         const prevRow = rowsData[rowsData.length - 2];
+        const inputRow = rowsData[2]; // 3행 (투자대비 input 값)
+
         const val = parseFloat(lastRow[sector.col].trim().replace(/,/g, ''));
         const diff = val - parseFloat(prevRow[sector.col].trim().replace(/,/g, ''));
+        
+        // 3행 투자 원금값 파싱 및 투자대비 계산
+        const inputVal = inputRow && inputRow[sector.col] ? parseFloat(inputRow[sector.col].trim().replace(/,/g, '')) : 0;
+        const investDiff = val - inputVal;
 
         document.getElementById('sector-name').innerText = sector.name;
         document.getElementById('val').innerText = `${val.toLocaleString()}원`;
         document.getElementById('memo').innerText = rowsData[1][sector.col] || "메모 없음";
+        
+        // 전일 대비 출력 및 박스 색상 동적 적용
         document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
-        document.getElementById('diff').className = diff >= 0 ? 'diff-plus' : 'diff-minus';
+        document.getElementById('diff').className = `result-box ${diff >= 0 ? 'box-gold' : 'box-red'}`;
+        
+        // 투자 대비 출력 및 박스 색상 동적 적용
+        document.getElementById('invest-diff').innerText = `투자대비: ${investDiff >= 0 ? '+' : ''}${investDiff.toLocaleString()}원`;
+        document.getElementById('invest-diff').className = `result-box ${investDiff >= 0 ? 'box-gold' : 'box-red'}`;
     }
 
     init();
