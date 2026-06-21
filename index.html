@@ -25,6 +25,8 @@
         .end-tab-content { background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 8px; }
         .memo-list-container { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 400px; overflow-y: auto; }
         .memo-item-card { background: #f1f5f9; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #475569; font-size: 11px; color: #1e293b; line-height: 1.4; font-family: monospace; white-space: pre-wrap; word-break: break-all; }
+        /* 링크 스타일 추가 */
+        .memo-link { color: #1e293b; text-decoration: underline; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -202,7 +204,21 @@
 
         document.getElementById('sector-name').innerText = sector.name;
         document.getElementById('val').innerText = `${val.toLocaleString()}원`;
-        document.getElementById('memo').innerText = rowsData[1][sector.col] || "메모 없음";
+        
+        // --- 2행 메모 파이프(|) 링크 처리 부분 ---
+        let memoRaw = rowsData[1][sector.col] ? rowsData[1][sector.col].trim() : "메모 없음";
+        const memoEl = document.getElementById('memo');
+        
+        if (memoRaw.includes('|')) {
+            let parts = memoRaw.split('|');
+            let linkTitle = parts[0].trim();
+            let linkUrl = parts[1].trim();
+            memoEl.innerHTML = `<a href="${linkUrl}" target="_blank" class="memo-link">${linkTitle}</a>`;
+        } else {
+            memoEl.innerText = memoRaw;
+            memoEl.innerHTML = memoEl.innerHTML; // 단순 텍스트 초기화 및 HTML 안정화
+        }
+        // ----------------------------------------
         
         document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
         document.getElementById('diff').className = `result-box ${diff >= 0 ? 'box-gold' : 'box-red'}`;
