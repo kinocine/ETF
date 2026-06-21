@@ -25,8 +25,11 @@
         .end-tab-content { background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 8px; }
         .memo-list-container { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 400px; overflow-y: auto; }
         .memo-item-card { background: #f1f5f9; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #475569; font-size: 11px; color: #1e293b; line-height: 1.4; font-family: monospace; white-space: pre-wrap; word-break: break-all; }
-        /* 링크 스타일 추가 */
-        .memo-link { color: #1e293b; text-decoration: underline; font-weight: bold; }
+        
+        /* 다중 링크 정렬 스타일 */
+        .memo-container { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .memo-link { color: #0284c7; text-decoration: underline; font-weight: bold; margin-right: 4px; }
+        .memo-text { color: #1e293b; }
     </style>
 </head>
 <body>
@@ -62,7 +65,6 @@
     let rowsData = [], sectors = [], currentIdx = 1, rawText = "";
     let memoColIdx = -1; 
 
-    // CSV 특유의 큰따옴표 묶음 데이터까지 완벽하게 분리해내는 범용 줄 파싱 함수
     function parseCSVLine(line) {
         const result = [];
         let current = "";
@@ -88,14 +90,11 @@
         const res = await fetch(cacheBusterUrl);
         rawText = await res.text();
         
-        // 유효한 줄만 정밀하게 1차 배열화
         const lines = rawText.split(/\r?\n/).filter(line => line.trim().length > 0);
         rowsData = lines.map(line => parseCSVLine(line));
         
-        // 1행에서 '종합메모' 위치 확정
         memoColIdx = rowsData[0].findIndex(name => name === "종합메모");
 
-        // 탭 메뉴 구성 (종합메모 열은 완벽 배제)
         sectors = rowsData[0].map((name, i) => ({ name: name, col: i }))
                              .filter(s => s.name && !s.name.includes('과거') && s.name !== '종합메모');
         
@@ -122,7 +121,6 @@
         update();
     }
 
-    // 지정된 종합메모 인덱스 칸만 칼같이 추출하는 매칭 함수
     function renderMemoListExact() {
         const container = document.getElementById('memoListContainer');
         container.innerHTML = "";
@@ -134,14 +132,10 @@
 
         let hasMemo = false;
 
-        // 2행(index 1)부터 전체 데이터 스캔
         for (let i = 1; i < rowsData.length; i++) {
             const row = rowsData[i];
-            
-            // 찾아낸 종합메모 열 위치의 데이터만 정확히 지정해 추출
             if (row && row[memoColIdx]) {
                 let cellText = row[memoColIdx].trim();
-                
                 if (!cellText || cellText === "종합메모") continue;
 
                 const card = document.createElement('div');
@@ -180,7 +174,6 @@
         const prevRow = rowsData[rowsData.length - 2];
         const inputRow = rowsData[2];
 
-        // 하단 잔고행 탐색 시 종합메모만 있고 종목 데이터가 비어있는 빈 행은 역순 스킵 처리
         let targetLastRow = lastRow;
         let targetPrevRow = prevRow;
         let rIdx = rowsData.length - 1;
@@ -205,18 +198,44 @@
         document.getElementById('sector-name').innerText = sector.name;
         document.getElementById('val').innerText = `${val.toLocaleString()}원`;
         
-        // --- 2행 메모 파이프(|) 링크 처리 부분 ---
-        let memoRaw = rowsData[1][sector.col] ? rowsData[1][sector.col].trim() : "메모 없음";
+        // --- 다중 링크 자동 인식 및 치환 로직 ---
+        let memoRaw = rowsData[1][sector.col] ? rowsData[1][sector.col].trim() : "";
         const memoEl = document.getElementById('memo');
         
-        if (memoRaw.includes('|')) {
-            let parts = memoRaw.split('|');
-            let linkTitle = parts[0].trim();
-            let linkUrl = parts[1].trim();
-            memoEl.innerHTML = `<a href="${linkUrl}" target="_blank" class="memo-link">${linkTitle}</a>`;
+        if (!memoRaw || memoRaw === "메모 없음") {
+            memoEl.innerText = "메모 없음";
         } else {
-            memoEl.innerText = memoRaw;
-            memoEl.innerHTML = memoEl.innerHTML; // 단순 텍스트 초기화 및 HTML 안정화
+            // URL 주소들을 추출
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const urls = memoRaw.match(urlRegex);
+            
+            if (urls && urls.length > 0) {
+                // 주소들을 기준으로 텍스트 분할하여 타이틀 매칭
+                let remainText = memoRaw;
+                let htmlResult = `<div class="memo-container">`;
+                
+                urls.forEach((url) => {
+                    let parts = remainText.split(url);
+                    let titleText = parts[0].trim(); // URL 직전의 글자가 타이틀이 됨
+                    
+                    if (titleText) {
+                        htmlResult += `<a href="${url}" target="_blank" class="memo-link">${titleText}</a> `;
+                    } else {
+                        htmlResult += `<a href="${url}" target="_blank" class="memo-link">[링크]</a> `;
+                    }
+                    remainText = parts.slice(1).join(url).trim();
+                });
+                
+                // 링크 처리가 끝나고 남은 일반 텍스트가 있으면 뒤에 덧붙임
+                if (remainText) {
+                    htmlResult += `<span class="memo-text">${remainText}</span>`;
+                }
+                
+                htmlResult += `</div>`;
+                memoEl.innerHTML = htmlResult;
+            } else {
+                memoEl.innerText = memoRaw;
+            }
         }
         // ----------------------------------------
         
