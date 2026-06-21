@@ -14,12 +14,10 @@
         .card { background: white; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 8px; }
         .sector-title { font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 4px; }
         
-        /* 기존 텍스트 색상 유지 및 박스 스타일 추가 수용 */
         .diff-plus { color: #dc2626; font-weight: bold; }
         .diff-minus { color: #0284c7; font-weight: bold; }
         .box { background: #fffde7; padding: 6px; font-size: 9px; border: 1px solid #fef08a; border-radius: 4px; margin-bottom: 8px; }
         
-        /* 흑자(골드)/적자(레드) 박스 공통 및 개별 스타일 */
         .result-box { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-top: 4px; }
         .box-gold { background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
         .box-red { background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
@@ -61,7 +59,6 @@
     let rowsData = [], sectors = [], currentIdx = 1;
 
     async function init() {
-        // 모바일 브라우저 캐시 방지를 위해 실시간 시간값 파라미터 강제 추가하여 요청
         const cacheBusterUrl = URL + "&t=" + new Date().getTime();
         const res = await fetch(cacheBusterUrl);
         const text = await res.text();
@@ -75,7 +72,7 @@
             createTab(s, idx);
         });
 
-        // END 탭 생성 및 클릭 이벤트 매핑
+        // END 탭 생성 및 클릭 이벤트 매핑 (줄바꿈 기능 수정 완료)
         const endBtn = document.createElement('div');
         endBtn.className = 'tab end-tab';
         endBtn.innerText = 'END';
@@ -86,8 +83,16 @@
             document.getElementById('data-view').style.display = 'none';
             document.getElementById('end-tab-view').style.display = 'block';
             
-            // 시트의 2행 1열 (A2 셀) 값을 파싱하여 텍스트창에 즉각 출력
-            const totalMemo = rowsData[1][0] ? rowsData[1][0].trim() : "종합 메모가 비어 있습니다.";
+            let totalMemo = rowsData[1][0] ? rowsData[1][0].trim() : "종합 메모가 비어 있습니다.";
+            
+            // 앞뒤 큰따옴표 제거
+            if (totalMemo.startsWith('"') && totalMemo.endsWith('"')) {
+                totalMemo = totalMemo.substring(1, totalMemo.length - 1);
+            }
+            
+            // 파이프 기호(|)를 실제 줄바꿈으로 변경
+            totalMemo = totalMemo.replace(/\|/g, '\n');
+            
             document.getElementById('endMemoText').value = totalMemo;
         };
         tabContainer.appendChild(endBtn);
@@ -95,6 +100,7 @@
         update();
     }
 
+    /* 하단 createTab 및 update 함수는 기존과 동일합니다 */
     function createTab(s, idx) {
         const btn = document.createElement('div');
         btn.className = `tab ${idx === 1 ? 'active' : ''}`;
@@ -116,12 +122,11 @@
         const sector = sectors[currentIdx];
         const lastRow = rowsData[rowsData.length - 1];
         const prevRow = rowsData[rowsData.length - 2];
-        const inputRow = rowsData[2]; // 3행 (투자대비 input 값)
+        const inputRow = rowsData[2];
 
         const val = parseFloat(lastRow[sector.col].trim().replace(/,/g, ''));
         const diff = val - parseFloat(prevRow[sector.col].trim().replace(/,/g, ''));
         
-        // 3행 투자 원금값 파싱 및 투자대비 계산
         const inputVal = inputRow && inputRow[sector.col] ? parseFloat(inputRow[sector.col].trim().replace(/,/g, '')) : 0;
         const investDiff = val - inputVal;
 
@@ -129,11 +134,9 @@
         document.getElementById('val').innerText = `${val.toLocaleString()}원`;
         document.getElementById('memo').innerText = rowsData[1][sector.col] || "메모 없음";
         
-        // 전일 대비 출력 및 박스 색상 동적 적용
         document.getElementById('diff').innerText = `전일 대비: ${diff >= 0 ? '+' : ''}${diff.toLocaleString()}원`;
         document.getElementById('diff').className = `result-box ${diff >= 0 ? 'box-gold' : 'box-red'}`;
         
-        // 투자 대비 출력 및 박스 색상 동적 적용
         document.getElementById('invest-diff').innerText = `투자대비: ${investDiff >= 0 ? '+' : ''}${investDiff.toLocaleString()}원`;
         document.getElementById('invest-diff').className = `result-box ${investDiff >= 0 ? 'box-gold' : 'box-red'}`;
     }
