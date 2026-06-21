@@ -22,7 +22,10 @@
         .box-gold { background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
         .box-red { background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
         
+        /* END 탭 종합 메모 리스트를 위한 모바일 전용 스타일 */
         .end-tab-content { background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 8px; }
+        .memo-list-container { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 400px; overflow-y: auto; }
+        .memo-item-card { background: #f1f5f9; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #475569; font-size: 11px; color: #1e293b; line-height: 1.4; font-family: monospace; white-space: pre-wrap; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -42,11 +45,10 @@
     </div>
 
     <div id="end-tab-view" class="end-tab-content" style="display: none;">
-        <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: bold; color: #333;">📊 구글 시트 종합 메모 내역 (A2 셀 연동)</p>
-        <textarea id="endMemoText" 
-                  placeholder="구글 시트에서 메모를 불러오는 중입니다..." 
-                  readonly
-                  style="width: 100%; height: 220px; box-sizing: border-box; font-family: monospace; font-size: 14px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; white-space: pre; overflow-x: auto; background-color: #fafafa; color: #222;"></textarea>
+        <p style="margin: 0 0 6px 0; font-size: 12px; font-weight: bold; color: #333;">📊 구글 시트 종합 매매 일지 내역</p>
+        <div id="memoListContainer" class="memo-list-container">
+            <div class="memo-item-card">종합 메모를 불러오는 중입니다...</div>
+        </div>
     </div>
 </div>
 
@@ -57,14 +59,20 @@
     const URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?output=csv";
     
     let rowsData = [], sectors = [], currentIdx = 1;
+    let memoColIdx = -1; // "종합메모" 열 번호를 기억할 변수
 
     async function init() {
         const cacheBusterUrl = URL + "&t=" + new Date().getTime();
         const res = await fetch(cacheBusterUrl);
         const text = await res.text();
         rowsData = text.split(/\r?\n/).map(r => r.split(','));
+        
+        // 1행 전체를 뒤져서 정확히 "종합메모"라고 적힌 열의 인덱스를 자동 탐색
+        memoColIdx = rowsData[0].findIndex(name => name.trim() === "종합메모");
+
+        // 상단 탭 생성 시 "종합메모" 열과 "과거"가 포함된 열은 제외
         sectors = rowsData[0].map((name, i) => ({ name: name.trim(), col: i }))
-                             .filter(s => s.name && !s.name.includes('과거'));
+                             .filter(s => s.name && !s.name.includes('과거') && s.name !== '종합메모');
         
         const tabContainer = document.getElementById('tabs');
         sectors.forEach((s, idx) => {
@@ -72,7 +80,7 @@
             createTab(s, idx);
         });
 
-        // END 탭 생성 및 클릭 이벤트 매핑 (줄바꿈 기능 수정 완료)
+        // END 탭 생성 및 클릭 이벤트 매핑
         const endBtn = document.createElement('div');
         endBtn.className = 'tab end-tab';
         endBtn.innerText = 'END';
@@ -83,24 +91,57 @@
             document.getElementById('data-view').style.display = 'none';
             document.getElementById('end-tab-view').style.display = 'block';
             
-            let totalMemo = rowsData[1][0] ? rowsData[1][0].trim() : "종합 메모가 비어 있습니다.";
-            
-            // 앞뒤 큰따옴표 제거
-            if (totalMemo.startsWith('"') && totalMemo.endsWith('"')) {
-                totalMemo = totalMemo.substring(1, totalMemo.length - 1);
-            }
-            
-            // 파이프 기호(|)를 실제 줄바꿈으로 변경
-            totalMemo = totalMemo.replace(/\|/g, '\n');
-            
-            document.getElementById('endMemoText').value = totalMemo;
+            renderMemoList();
         };
         tabContainer.appendChild(endBtn);
 
         update();
     }
 
-    /* 하단 createTab 및 update 함수는 기존과 동일합니다 */
+    // 종합메모 열의 2행부터 마지막 행까지 루프를 돌며 카드로 생성하는 함수
+    function renderMemoList() {
+        const container = document.getElementById('memoListContainer');
+        container.innerHTML = ""; // 기존 내역 초기화
+
+        if (memoColIdx === -1) {
+            container.innerHTML = "<div class='memo-item-card'>구글 시트 1행에 '종합메모' 타이틀 열을 찾을 수 없습니다.</div>";
+            return;
+        }
+
+        let hasMemo = false;
+
+        // 2행(index 1)부터 데이터 끝까지 수직(행 기준)으로 탐색
+        for (let i = 1; i < rowsData.length; i++) {
+            const row = rowsData[i];
+            if (row && row[memoColIdx]) {
+                let cellText = row[memoColIdx].trim();
+                
+                // 데이터가 빈 칸이면 패스
+                if (!cellText) continue;
+
+                // 구글 시트 파싱 에러 방지를 위해 혹시 붙었을지 모를 양 끝 큰따옴표 제거
+                if (cellText.startsWith('"') && cellText.endsWith('"')) {
+                    cellText = cellText.substring(1, cellText.length - 1);
+                }
+
+                // 혹시 셀 내부에서 Alt+Enter 등으로 줄바꿈 처리가 되어 있다면 줄바꿈 적용
+                cellText = cellText.replace(/\\n/g, '\n');
+
+                // 메모 아이템 카드 동적 생성 및 추가 (의견 1 구조)
+                const card = document.createElement('div');
+                card.className = 'memo-item-card';
+                card.innerText = cellText;
+                container.appendChild(card);
+                
+                hasMemo = true;
+            }
+        }
+
+        if (!hasMemo) {
+            container.innerHTML = "<div class='memo-item-card'>기록된 종합 매매 내역이 없습니다.</div>";
+        }
+    }
+
     function createTab(s, idx) {
         const btn = document.createElement('div');
         btn.className = `tab ${idx === 1 ? 'active' : ''}`;
