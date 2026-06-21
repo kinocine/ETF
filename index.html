@@ -57,21 +57,44 @@
 
     const URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2EdAHai-BtLijGsrLKr_7_cOIxsh4am9N7UWW0K2ACHM8kArlVAFDAIILtUqcRysJc4mFQAFy2rLP/pub?output=csv";
     
-    // rawText 변수를 추가해 서버에서 받아온 가공되지 않은 텍스트 원본을 기억해둡니다.
     let rowsData = [], sectors = [], currentIdx = 1, rawText = "";
-    let memoColIdx = -1;
+    let memoColIdx = -1; 
+
+    // CSV 특유의 큰따옴표 묶음 데이터까지 완벽하게 분리해내는 범용 줄 파싱 함수
+    function parseCSVLine(line) {
+        const result = [];
+        let current = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = "";
+            } else {
+                current += char;
+            }
+        }
+        result.push(current.trim());
+        return result;
+    }
 
     async function init() {
         const cacheBusterUrl = URL + "&t=" + new Date().getTime();
         const res = await fetch(cacheBusterUrl);
-        rawText = await res.text(); // 원본 글자 그대로 보관 (J열 파싱용)
+        rawText = await res.text();
         
-        // 기존의 안정적인 파싱 방식을 '그대로' 유지 (타 열 데이터 철저히 보호)
-        rowsData = rawText.split(/\r?\n/).map(r => r.split(','));
+        // 유효한 줄만 정밀하게 1차 배열화
+        const lines = rawText.split(/\r?\n/).filter(line => line.trim().length > 0);
+        rowsData = lines.map(line => parseCSVLine(line));
         
-        memoColIdx = rowsData[0].findIndex(name => name.trim() === "종합메모");
+        // 1행에서 '종합메모' 위치 확정
+        memoColIdx = rowsData[0].findIndex(name => name === "종합메모");
 
-        sectors = rowsData[0].map((name, i) => ({ name: name.trim(), col: i }))
+        // 탭 메뉴 구성 (종합메모 열은 완벽 배제)
+        sectors = rowsData[0].map((name, i) => ({ name: name, col: i }))
                              .filter(s => s.name && !s.name.includes('과거') && s.name !== '종합메모');
         
         const tabContainer = document.getElementById('tabs');
@@ -90,15 +113,15 @@
             document.getElementById('data-view').style.display = 'none';
             document.getElementById('end-tab-view').style.display = 'block';
             
-            renderMemoListSafe();
+            renderMemoListExact();
         };
         tabContainer.appendChild(endBtn);
 
         update();
     }
 
-    // 쉼표로 쪼개진 데이터가 아니라, 줄별 텍스트 원본에서 J열만 완벽하게 발라내는 안전한 함수
-    function renderMemoListSafe() {
+    // 지정된 종합메모 인덱스 칸만 칼같이 추출하는 매칭 함수
+    function renderMemoListExact() {
         const container = document.getElementById('memoListContainer');
         container.innerHTML = "";
 
@@ -107,35 +130,22 @@
             return;
         }
 
-        const lines = rawText.split(/\r?\n/);
         let hasMemo = false;
 
-        // 2행(index 1)부터 처리합니다.
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.trim()) continue;
-
-            // 정규식을 사용해 현재 줄에서 큰따옴표 묶음 또는 일반 텍스트 단위로 온전한 열 배열을 추출합니다.
-            const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+        // 2행(index 1)부터 전체 데이터 스캔
+        for (let i = 1; i < rowsData.length; i++) {
+            const row = rowsData[i];
             
-            // 원래 쪼개진 개수 규칙과 매칭하여 정확히 종합메모 열 위치의 원본 값을 가져옵니다.
-            let cellText = matches[memoColIdx];
-            
-            if (cellText) {
-                cellText = cellText.trim();
+            // 찾아낸 종합메모 열 위치의 데이터만 정확히 지정해 추출
+            if (row && row[memoColIdx]) {
+                let cellText = row[memoColIdx].trim();
                 
-                // 앞뒤 큰따옴표 및 쉼표 노이즈 완벽 세척
-                if (cellText.startsWith('"') && cellText.endsWith('"')) {
-                    cellText = cellText.substring(1, cellText.length - 1);
-                }
-                
-                if (!cellText || cellText === ",") continue;
+                if (!cellText || cellText === "종합메모") continue;
 
                 const card = document.createElement('div');
                 card.className = 'memo-item-card';
                 card.innerText = cellText;
                 container.appendChild(card);
-                
                 hasMemo = true;
             }
         }
@@ -168,8 +178,24 @@
         const prevRow = rowsData[rowsData.length - 2];
         const inputRow = rowsData[2];
 
-        const val = parseFloat(lastRow[sector.col].trim().replace(/,/g, ''));
-        const diff = val - parseFloat(prevRow[sector.col].trim().replace(/,/g, ''));
+        // 하단 잔고행 탐색 시 종합메모만 있고 종목 데이터가 비어있는 빈 행은 역순 스킵 처리
+        let targetLastRow = lastRow;
+        let targetPrevRow = prevRow;
+        let rIdx = rowsData.length - 1;
+
+        while (rIdx >= 2 && (!rowsData[rIdx][sector.col] || isNaN(parseFloat(rowsData[rIdx][sector.col].replace(/,/g, ''))))) {
+            rIdx--;
+        }
+        if (rIdx >= 2) targetLastRow = rowsData[rIdx];
+
+        let pIdx = rIdx - 1;
+        while (pIdx >= 2 && (!rowsData[pIdx][sector.col] || isNaN(parseFloat(rowsData[pIdx][sector.col].replace(/,/g, ''))))) {
+            pIdx--;
+        }
+        if (pIdx >= 2) targetPrevRow = rowsData[pIdx];
+
+        const val = parseFloat(targetLastRow[sector.col].trim().replace(/,/g, ''));
+        const diff = val - parseFloat(targetPrevRow[sector.col].trim().replace(/,/g, ''));
         
         const inputVal = inputRow && inputRow[sector.col] ? parseFloat(inputRow[sector.col].trim().replace(/,/g, '')) : 0;
         const investDiff = val - inputVal;
