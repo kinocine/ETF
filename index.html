@@ -35,6 +35,10 @@
         .box-gold { background-color: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
         .box-red { background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
         
+        /* 최고치/최저치 전용 박스 스타일 */
+        .box-max { background-color: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .box-min { background-color: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; }
+
         .end-tab-content { background: white; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 8px; }
         .memo-list-container { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 400px; overflow-y: auto; }
         .memo-item-card { background: #f1f5f9; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #475569; font-size: 11px; color: #1e293b; line-height: 1.4; font-family: monospace; white-space: pre-wrap; word-break: break-all; }
@@ -56,6 +60,10 @@
             <div id="val" style="font-size: 20px; font-weight: 800; margin-bottom: 4px;">0원</div>
             <div><div id="diff">전일 대비: ±0원</div></div>
             <div><div id="invest-diff">투자대비: ±0원</div></div>
+            <div style="margin-top: 4px; display: flex; gap: 4px;">
+                <div id="max-val" class="result-box box-max">최고: 0원</div>
+                <div id="min-val" class="result-box box-min">최저: 0원</div>
+            </div>
         </div>
 
         <div class="chart-box">
@@ -275,22 +283,21 @@
         document.getElementById('invest-diff').innerText = `투자대비: ${investDiff >= 0 ? '+' : ''}${investDiff.toLocaleString()}원`;
         document.getElementById('invest-diff').className = `result-box ${investDiff >= 0 ? 'box-gold' : 'box-red'}`;
 
-        // 📊 최신 7일 데이터 추출 및 그래프 업데이트 실행
-        updateChartData(sector.col);
+        // 📊 데이터 추출 및 최고/최저치 계산 + 그래프 업데이트 실행
+        updateChartAndMinMax(sector.col);
     }
 
-    // --- 최신 7일 데이터 수집 및 그래프 동적 렌더링 함수 ---
-    function updateChartData(colIdx) {
-        let labels = []; // 차트 X축 (날짜 또는 회차순번)
-        let dataPoints = []; // 차트 Y축 (금액 데이터)
+    // --- 데이터 수집, 최고/최저 계산 및 가로 기준선 포함 그래프 동적 렌더링 함수 ---
+    function updateChartAndMinMax(colIdx) {
+        let labels = []; 
+        let dataPoints = []; 
 
-        // 구글시트 데이터 행(3행부터 끝까지) 순회하며 올바른 숫자 데이터만 필터링 수집
+        // 구글시트 전체 데이터 행(3행부터 끝까지) 순회하며 숫자 데이터 수집
         for (let i = 2; i < rowsData.length; i++) {
             const row = rowsData[i];
             if (row && row[colIdx]) {
                 const cleanVal = row[colIdx].trim().replace(/,/g, '');
                 if (cleanVal !== "" && !isNaN(parseFloat(cleanVal))) {
-                    // 첫 번째 열(0번 col)에 날짜정보가 보편적으로 기록되므로 날짜를 매칭, 없을시 숫자 순번 매칭
                     const dateLabel = (row[0] && row[0].trim()) ? row[0].trim() : `${i - 1}회차`;
                     labels.push(dateLabel);
                     dataPoints.push(parseFloat(cleanVal));
@@ -298,10 +305,26 @@
             }
         }
 
+        let globalMax = 0;
+        let globalMin = 0;
+
+        // 최고치 및 최저치 계산 처리 (전체 기간 기준)
+        if (dataPoints.length > 0) {
+            globalMax = Math.max(...dataPoints);
+            globalMin = Math.min(...dataPoints);
+            document.getElementById('max-val').innerText = `최고: ${globalMax.toLocaleString()}원`;
+            document.getElementById('min-val').innerText = `최저: ${globalMin.toLocaleString()}원`;
+            document.getElementById('max-val').style.display = 'inline-block';
+            document.getElementById('min-val').style.display = 'inline-block';
+        } else {
+            document.getElementById('max-val').style.display = 'none';
+            document.getElementById('min-val').style.display = 'none';
+        }
+
         const msgEl = document.getElementById('chart-msg');
         const canvasEl = document.getElementById('trendChart');
 
-        // 예외 처리 1 : 데이터가 아예 없는 경우 (0개)
+        // 예외 처리 1 : 데이터가 아예 없는 경우
         if (dataPoints.length === 0) {
             canvasEl.style.display = 'none';
             msgEl.style.display = 'block';
@@ -309,37 +332,82 @@
             return;
         }
 
-        // 예외 처리 2 & 3 : 데이터가 7개 이상일 경우 최신 7개만 자르고, 미만(1~6개)일 때는 데이터 그대로 표기
+        // 그래프는 최신 7개 데이터만 슬라이싱하여 표기
+        let chartLabels = labels;
+        let chartDataPoints = dataPoints;
         if (dataPoints.length > 7) {
-            labels = labels.slice(-7);
-            dataPoints = dataPoints.slice(-7);
-            canvasEl.style.display = 'block';
-            msgEl.style.display = 'none';
-        } else {
-            canvasEl.style.display = 'block';
-            msgEl.style.display = 'none';
+            chartLabels = labels.slice(-7);
+            chartDataPoints = dataPoints.slice(-7);
         }
+        
+        canvasEl.style.display = 'block';
+        msgEl.style.display = 'none';
 
-        // 기존 생성되어 동작 중이던 차트 인스턴스가 있다면 리셋 소멸 처리(메모리 릭 및 잔상 버그 방지)
+        // 기존 차트 인스턴스 소멸 처리
         if (myChart) {
             myChart.destroy();
         }
 
-        // Chart.js를 이용해 세련된 선 그래프 렌더링
+        // 🎨 차트 캔버스 위에 최고/최저 점선을 커스텀 드로잉하는 내장 플러그인 정의
+        const customLinePlugin = {
+            id: 'customMinMaxLines',
+            afterDraw: (chart) => {
+                const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+                
+                ctx.save();
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]); // 4픽셀 간격 점선 설정
+                ctx.font = 'bold 8px sans-serif';
+
+                // 1. 최고치 가로 점선 그리기 (차트 Y축 화면 범위 내에 존재할 때만)
+                if (globalMax >= y.min && globalMax <= y.max) {
+                    const yPosMax = y.getPixelForValue(globalMax);
+                    ctx.strokeStyle = '#16a34a'; // 최고치 연두/녹색 계열
+                    ctx.fillStyle = '#16a34a';
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(left, yPosMax);
+                    ctx.lineTo(right, yPosMax);
+                    ctx.stroke();
+                    
+                    // 우측 끝에 텍스트 표기
+                    ctx.fillText('최고', right - 22, yPosMax - 3);
+                }
+
+                // 2. 최저치 가로 점선 그리기 (차트 Y축 화면 범위 내에 존재할 때만)
+                if (globalMin >= y.min && globalMin <= y.max) {
+                    const yPosMin = y.getPixelForValue(globalMin);
+                    ctx.strokeStyle = '#0284c7'; // 최저치 하늘/파란색 계열
+                    ctx.fillStyle = '#0284c7';
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(left, yPosMin);
+                    ctx.lineTo(right, yPosMin);
+                    ctx.stroke();
+                    
+                    // 우측 끝에 텍스트 표기
+                    ctx.fillText('최저', right - 22, yPosMin + 9);
+                }
+                
+                ctx.restore();
+            }
+        };
+
+        // Chart.js 렌더링
         const ctx = canvasEl.getContext('2d');
         myChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: labels,
+                labels: chartLabels,
                 datasets: [{
                     label: '최근 추이',
-                    data: dataPoints,
-                    borderColor: '#334155', // 라인 색상 (탭 활성화 컬러 계열 매칭)
+                    data: chartDataPoints,
+                    borderColor: '#334155', 
                     backgroundColor: 'rgba(51, 65, 85, 0.05)',
                     borderWidth: 2,
                     pointRadius: 3,
                     pointBackgroundColor: '#334155',
-                    tension: 0.2, // 선의 휘어짐 곡선 곡률
+                    tension: 0.2, 
                     fill: true
                 }]
             },
@@ -347,7 +415,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false } // 상단 범례 표시 안함
+                    legend: { display: false } 
                 },
                 scales: {
                     x: {
@@ -358,7 +426,6 @@
                         ticks: {
                             font: { size: 8 },
                             callback: function(value) {
-                                // 금액 숫자가 길어질 경우 단위 간소화 포맷팅처리
                                 if (value >= 10000) return (value / 10000).toLocaleString() + '만';
                                 return value.toLocaleString();
                             }
@@ -366,7 +433,8 @@
                         grid: { color: '#f1f5f9' }
                     }
                 }
-            }
+            },
+            plugins: [customLinePlugin] // 제작한 커스텀 선 플러그인 장착
         });
     }
 
