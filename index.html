@@ -326,7 +326,7 @@
             document.getElementById('min-val').style.display = 'none';
         }
 
-        // 💡 [신규 추가] 상단 현재가 위치 가이드 맵 차트 빌드
+        // 💡 상단 현재가 위치 가이드 맵 차트 빌드
         renderPositionMapChart(dataPoints, globalMax, globalMin);
 
         const msgEl = document.getElementById('chart-msg');
@@ -446,7 +446,7 @@
         });
     }
 
-    // 💡 [신규 함수] 사장님 스케치 기반 가이드 맵 구현 로직 (출발가 -> 최고가 -> 최저가 -> 현재가 지그재그 지도)
+    // --- 가이드 맵 구현 로직 (출발가 -> 최고가 -> 최저가 -> 현재가 지그재그 지도) ---
     function renderPositionMapChart(dataPoints, max, min) {
         const canvasMapEl = document.getElementById('positionMapChart');
         if (myMapChart) {
@@ -482,7 +482,10 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: { top: 15, bottom: 10, left: 10, right: 45 } },
+                layout: { 
+                    // 텍스트가 위아래, 우측으로 잘리지 않도록 여백을 넓게 확보
+                    padding: { top: 20, bottom: 15, left: 25, right: 25 } 
+                },
                 plugins: {
                     legend: { display: false },
                     tooltip: {
@@ -507,6 +510,7 @@
                     const { ctx, scales: { x, y } } = chart;
                     ctx.save();
                     ctx.font = 'bold 9px sans-serif';
+                    ctx.textAlign = 'center'; // 텍스트를 마커 정중앙 위에 위치시키기 위해 가운데 정렬 설정
 
                     // 1. 출발가 (기준 수평선 점선 드로잉)
                     const yStartPos = y.getPixelForValue(startVal);
@@ -518,30 +522,26 @@
                     ctx.lineTo(chart.chartArea.right, yStartPos);
                     ctx.stroke();
 
-                    // 2. 최고가 변동폭 텍스트 (+폭)
+                    // 2. 최고가 변동폭 텍스트 (마커 바로 위에 표기)
                     const xMaxPos = x.getPixelForValue(1);
                     const yMaxPos = y.getPixelForValue(max);
                     ctx.fillStyle = '#16a34a';
-                    ctx.fillText('+' + plusDiff.toLocaleString() + '원', xMaxPos + 8, yMaxMaxPos(yMaxPos, yStartPos));
+                    ctx.fillText('+' + plusDiff.toLocaleString() + '원', xMaxPos, yMaxPos - 10);
 
-                    // 3. 최저가 변동폭 텍스트 (-폭)
+                    // 3. 최저가 변동폭 텍스트 (마커 바로 아래에 표기)
                     const xMinPos = x.getPixelForValue(2);
                     const yMinPos = y.getPixelForValue(min);
                     ctx.fillStyle = '#0284c7';
-                    ctx.fillText(minusDiff.toLocaleString() + '원', xMinPos - 45, yMinPos + 12);
+                    ctx.fillText(minusDiff.toLocaleString() + '원', xMinPos, yMinPos + 15);
 
-                    // 4. 현재가 상태 텍스트 (출발가 기준 현재 오름/내림폭)
+                    // 4. 현재가 상태 텍스트 (마커 바로 위에 표기하여 잘림 전면 차단)
                     const xCurPos = x.getPixelForValue(3);
                     const yCurPos = y.getPixelForValue(currentVal);
                     ctx.fillStyle = '#dc2626';
                     ctx.font = 'bold 10px sans-serif';
-                    ctx.fillText('현재: ' + (currentDiff >= 0 ? '+' : '') + currentDiff.toLocaleString() + '원', xCurPos + 8, yCurPos + 4);
+                    ctx.fillText('현재: ' + (currentDiff >= 0 ? '+' : '') + currentDiff.toLocaleString() + '원', xCurPos, yCurPos - 10);
 
                     ctx.restore();
-
-                    function yMaxMaxPos(yMax, yStart) {
-                        return (yMax + yStart) / 2; // 중간 지점에 텍스트 안착
-                    }
                 }
             }]
         });
